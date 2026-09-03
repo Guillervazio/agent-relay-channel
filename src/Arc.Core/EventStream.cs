@@ -67,7 +67,7 @@ public sealed class EventStream
 
     internal void Unsubscribe(Guid id)
     {
-        if (_subscribers.TryRemove(id, out Channel<ChannelEvent> channel))
+        if (_subscribers.TryRemove(id, out Channel<ChannelEvent>? channel))
         {
             channel.Writer.TryComplete();
         }

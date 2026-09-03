@@ -1,0 +1,33 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The store. One connection per operation; the pool reuses it. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.1" />
+
+    <!-- PINNED. Microsoft.Data.Sqlite 10.0.1 pulls this transitively at a version
+         carrying GHSA-2m69-gcr7-jv3q, so it is raised above 2.1.11 here.
+
+         The instrument that re-checks this pin is Microsoft.Data.Sqlite's own
+         nuspec, and NOT the vulnerability report of `dotnet list package`: that
+         report comes back clean *because of* the pin, so it can never tell you
+         the pin has become unnecessary. Read what the package declares. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+
+    <!-- The MCP surface. 2.2.0 is a stable release, not a preview: read off its
+         nuspec before it was approved, since the conventions forbid previews. -->
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+
+    <!-- Tests. Microsoft.NET.Test.Sdk stays on 17.x deliberately: 18.x switches
+         to Microsoft.Testing.Platform, and xunit v2 discovers through VSTest. -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+
+</Project>

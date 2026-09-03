@@ -113,8 +113,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
     {
         Message huerfana = new Message
         {
-            Id = "res_1", ThreadId = "thr_1", From = "codex-pc2", To = "claude-pc1",
-            Kind = MessageKind.Response, Body = "x", CreatedAt = DateTimeOffset.UtcNow
+            Id = "res_1",
+            ThreadId = "thr_1",
+            From = "codex-pc2",
+            To = "claude-pc1",
+            Kind = MessageKind.Response,
+            Body = "x",
+            CreatedAt = DateTimeOffset.UtcNow
         };
         await Assert.ThrowsAsync<ArgumentException>(() => _store.AddResponseAsync(huerfana));
     }
@@ -125,8 +130,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.AddAsync(Request());
         await _store.AddResponseAsync(new Message
         {
-            Id = "res_1", ThreadId = "thr_1", From = "codex-pc2", To = "claude-pc1",
-            Kind = MessageKind.Response, Body = "Céntimos.", CorrelationId = "req_1",
+            Id = "res_1",
+            ThreadId = "thr_1",
+            From = "codex-pc2",
+            To = "claude-pc1",
+            Kind = MessageKind.Response,
+            Body = "Céntimos.",
+            CorrelationId = "req_1",
             CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1)
         });
 
@@ -140,8 +150,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.AddAsync(Request());
         await _store.AddResponseAsync(new Message
         {
-            Id = "res_1", ThreadId = "thr_1", From = "codex-pc2", To = "claude-pc1",
-            Kind = MessageKind.Response, Body = "Céntimos.", CorrelationId = "req_1",
+            Id = "res_1",
+            ThreadId = "thr_1",
+            From = "codex-pc2",
+            To = "claude-pc1",
+            Kind = MessageKind.Response,
+            Body = "Céntimos.",
+            CorrelationId = "req_1",
             CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1)
         });
         // El segundo hilo se queda con la pregunta en el aire.
@@ -171,7 +186,9 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.AddAsync(Request() with { CreatedAt = now.AddMinutes(-10) });
         await _store.AddAsync(Request("req_2", to: "otro-agente") with
         {
-            ThreadId = "thr_2", Subject = "Otra cosa", CreatedAt = now
+            ThreadId = "thr_2",
+            Subject = "Otra cosa",
+            CreatedAt = now
         });
 
         IReadOnlyList<ThreadSummary> threads = await _store.ListThreadsAsync();

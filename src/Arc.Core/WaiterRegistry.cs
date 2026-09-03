@@ -36,7 +36,7 @@ public sealed class WaiterRegistry
     /// <summary>Despierta a todos los que esperaban esta clave.</summary>
     public int Signal(string key, Message message)
     {
-        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots))
+        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots))
         {
             return 0;
         }
@@ -54,7 +54,7 @@ public sealed class WaiterRegistry
 
     internal void Unregister(string key, Guid id)
     {
-        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots))
+        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots))
         {
             return;
         }

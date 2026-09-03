@@ -111,7 +111,10 @@ async Task<int> AskAsync()
         return FailHttp(response, text);
     }
 
-    if (asJson) { Console.WriteLine(text); }
+    if (asJson)
+    {
+        Console.WriteLine(text);
+    }
 
     AskResult? result = Deserialize<AskResult>(text);
     if (result is null)
@@ -211,7 +214,11 @@ async Task<int> InboxAsync()
         return FailHttp(response, text);
     }
 
-    if (asJson) { Console.WriteLine(text); return ExitCodes.Ok; }
+    if (asJson)
+    {
+        Console.WriteLine(text);
+        return ExitCodes.Ok;
+    }
 
     InboxResult? inbox = Deserialize<InboxResult>(text);
     if (inbox is null || inbox.Messages.Count == 0)
@@ -349,7 +356,11 @@ async Task<int> ThreadAsync()
         return FailHttp(response, text);
     }
 
-    if (asJson) { Console.WriteLine(text); return ExitCodes.Ok; }
+    if (asJson)
+    {
+        Console.WriteLine(text);
+        return ExitCodes.Ok;
+    }
 
     List<Message> messages = Deserialize<List<Message>>(text) ?? [];
     Console.WriteLine($"hilo {threadId} · {messages.Count} mensaje(s)");
@@ -392,7 +403,11 @@ string? ReadBody()
             return Console.In.ReadToEnd();
         }
 
-        if (!File.Exists(file)) { Console.Error.WriteLine($"No existe el fichero: {file}"); return null; }
+        if (!File.Exists(file))
+        {
+            Console.Error.WriteLine($"No existe el fichero: {file}");
+            return null;
+        }
         return File.ReadAllText(file, Encoding.UTF8);
     }
 
@@ -421,7 +436,10 @@ JsonNode? ReadRefs()
         return null;
     }
 
-    try { return JsonNode.Parse(raw); }
+    try
+    {
+        return JsonNode.Parse(raw);
+    }
     catch (JsonException exception)
     {
         Console.Error.WriteLine($"--refs no es JSON válido: {exception.Message}");
@@ -434,7 +452,10 @@ static StringContent Json(JsonNode payload) =>
 
 static T? Deserialize<T>(string text)
 {
-    try { return JsonSerializer.Deserialize<T>(text, ArcJson.Options); }
+    try
+    {
+        return JsonSerializer.Deserialize<T>(text, ArcJson.Options);
+    }
     catch (JsonException) { return default; }
 }
 
@@ -490,7 +511,11 @@ internal sealed class Flags
         while (queue.Count > 0)
         {
             string token = queue.Dequeue();
-            if (!token.StartsWith("--", StringComparison.Ordinal)) { flags.Positional.Add(token); continue; }
+            if (!token.StartsWith("--", StringComparison.Ordinal))
+            {
+                flags.Positional.Add(token);
+                continue;
+            }
 
             string name = token[2..];
             if (name.Contains('='))
