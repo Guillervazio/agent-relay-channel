@@ -40,12 +40,12 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
         ValidateBody(body);
 
-        var requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
-        var thread = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16];
+        string requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
+        string thread = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16];
 
         // Registrar la espera ANTES de insertar: si el destinatario contesta de
         // inmediato, la señal encuentra al waiter ya montado y no se pierde.
-        using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
+        using Waiter waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
 
         Message message = new Message
         {
@@ -66,13 +66,13 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         registry.Signal(WaiterRegistry.InboxKey(to!), message);
         events?.PublishMessage(message);
 
-        var seconds = Clamp(wait);
+        int seconds = Clamp(wait);
         if (seconds == 0)
         {
             return new AskResult { Outcome = "queued", RequestId = requestId, ThreadId = thread };
         }
 
-        var response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
+        Message? response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
                        ?? await store.GetResponseForAsync(requestId, ct);
 
         return response is null
@@ -83,7 +83,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
     public async Task<AskResult> AwaitResponseAsync(string caller, string requestId, int? wait, CancellationToken ct = default)
     {
-        var request = await store.GetAsync(requestId, ct);
+        Message? request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
         {
             throw new ChannelException("not_found", "No existe esa petición.", 404);
@@ -94,10 +94,10 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             throw new ChannelException("forbidden", "Sólo el emisor puede esperar esta respuesta.", 403);
         }
 
-        using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
+        using Waiter waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
 
-        var response = await store.GetResponseForAsync(requestId, ct);
-        if (response is null && Clamp(wait) is var seconds and > 0)
+        Message? response = await store.GetResponseForAsync(requestId, ct);
+        if (response is null && Clamp(wait) is int seconds and > 0)
         {
             response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
                        ?? await store.GetResponseForAsync(requestId, ct);
@@ -113,7 +113,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         ValidateBody(body);
 
-        var request = await store.GetAsync(requestId, ct);
+        Message? request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
         {
             throw new ChannelException("not_found", "No existe esa petición.", 404);
@@ -194,10 +194,10 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         }
 
         // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
-        using var waiter = registry.Register(WaiterRegistry.InboxKey(agent));
+        using Waiter waiter = registry.Register(WaiterRegistry.InboxKey(agent));
 
-        var messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
-        if (messages.Count == 0 && Clamp(wait) is var seconds and > 0)
+        IReadOnlyList<Message> messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+        if (messages.Count == 0 && Clamp(wait) is int seconds and > 0)
         {
             if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
             {

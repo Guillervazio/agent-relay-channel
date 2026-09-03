@@ -14,7 +14,7 @@ internal static class ObserverUi
 
     private static string Load()
     {
-        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
+        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Falta el recurso incrustado {ResourceName}.");
         using StreamReader reader = new StreamReader(stream);
         return reader.ReadToEnd();

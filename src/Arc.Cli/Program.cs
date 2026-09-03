@@ -17,13 +17,13 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
     return args.Length == 0 ? ExitUsage : ExitOk;
 }
 
-var command = args[0];
+string command = args[0];
 Flags flags = Flags.Parse(args.Skip(1));
 
-var url = (flags.Value("url") ?? Environment.GetEnvironmentVariable("ARC_URL") ?? "http://127.0.0.1:8765").TrimEnd('/');
-var agent = flags.Value("agent") ?? Environment.GetEnvironmentVariable("ARC_AGENT");
-var token = flags.Value("token") ?? Environment.GetEnvironmentVariable("ARC_TOKEN");
-var asJson = flags.Has("json");
+string url = (flags.Value("url") ?? Environment.GetEnvironmentVariable("ARC_URL") ?? "http://127.0.0.1:8765").TrimEnd('/');
+string? agent = flags.Value("agent") ?? Environment.GetEnvironmentVariable("ARC_AGENT");
+string? token = flags.Value("token") ?? Environment.GetEnvironmentVariable("ARC_TOKEN");
+bool asJson = flags.Has("json");
 
 if (string.IsNullOrWhiteSpace(agent))
 {
@@ -76,7 +76,7 @@ catch (TaskCanceledException)
 
 async Task<int> AskAsync()
 {
-    var to = flags.Value("to");
+    string? to = flags.Value("to");
     if (string.IsNullOrWhiteSpace(to))
     {
         return Fail("Falta --to <agente>.", ExitUsage);
@@ -87,7 +87,7 @@ async Task<int> AskAsync()
         return ExitUsage;
     }
 
-    var wait = flags.Number("wait") ?? 120;
+    int wait = flags.Number("wait") ?? 120;
 
     JsonObject payload = new JsonObject { ["to"] = to, ["body"] = body };
     if (flags.Value("subject") is { Length: > 0 } subject)
@@ -105,9 +105,9 @@ async Task<int> AskAsync()
         payload["refs"] = refs;
     }
 
-    var started = DateTimeOffset.UtcNow;
-    var response = await http.PostAsync($"/v1/requests?wait={wait}", Json(payload));
-    var text = await response.Content.ReadAsStringAsync();
+    DateTimeOffset started = DateTimeOffset.UtcNow;
+    HttpResponseMessage response = await http.PostAsync($"/v1/requests?wait={wait}", Json(payload));
+    string text = await response.Content.ReadAsStringAsync();
 
     if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted))
     {
@@ -116,7 +116,7 @@ async Task<int> AskAsync()
 
     if (asJson) { Console.WriteLine(text); }
 
-    var result = Deserialize<AskResult>(text);
+    AskResult? result = Deserialize<AskResult>(text);
     if (result is null)
     {
         return Fail("Respuesta del hub ilegible.", ExitError);
@@ -126,7 +126,7 @@ async Task<int> AskAsync()
     {
         if (!asJson)
         {
-            var seconds = (int)(DateTimeOffset.UtcNow - started).TotalSeconds;
+            int seconds = (int)(DateTimeOffset.UtcNow - started).TotalSeconds;
             Console.WriteLine($"Respondido por {answer.From} en {seconds}s  ({result.RequestId} · hilo {result.ThreadId})");
             if (answer.Refs is { } answerRefs)
             {
@@ -154,9 +154,9 @@ async Task<int> AwaitAsync()
         return Fail("Uso: arc await <request_id> [--wait N]", ExitUsage);
     }
 
-    var wait = flags.Number("wait") ?? 120;
-    var response = await http.GetAsync($"/v1/requests/{requestId}/response?wait={wait}");
-    var text = await response.Content.ReadAsStringAsync();
+    int wait = flags.Number("wait") ?? 120;
+    HttpResponseMessage response = await http.GetAsync($"/v1/requests/{requestId}/response?wait={wait}");
+    string text = await response.Content.ReadAsStringAsync();
 
     if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted))
     {
@@ -168,7 +168,7 @@ async Task<int> AwaitAsync()
         Console.WriteLine(text);
     }
 
-    var result = Deserialize<AskResult>(text);
+    AskResult? result = Deserialize<AskResult>(text);
     if (result?.Outcome == "answered" && result.Response is { } answer)
     {
         if (!asJson)
@@ -190,11 +190,11 @@ async Task<int> AwaitAsync()
 
 async Task<int> InboxAsync()
 {
-    var wait = flags.Number("wait") ?? 0;
-    var query = $"/v1/inbox/{agent}?wait={wait}" + (flags.Has("unanswered") ? "&unanswered=true" : "");
+    int wait = flags.Number("wait") ?? 0;
+    string query = $"/v1/inbox/{agent}?wait={wait}" + (flags.Has("unanswered") ? "&unanswered=true" : "");
 
-    var response = await http.GetAsync(query);
-    var text = await response.Content.ReadAsStringAsync();
+    HttpResponseMessage response = await http.GetAsync(query);
+    string text = await response.Content.ReadAsStringAsync();
 
     if (response.StatusCode == HttpStatusCode.NoContent)
     {
@@ -216,15 +216,15 @@ async Task<int> InboxAsync()
 
     if (asJson) { Console.WriteLine(text); return ExitOk; }
 
-    var inbox = Deserialize<InboxResult>(text);
+    InboxResult? inbox = Deserialize<InboxResult>(text);
     if (inbox is null || inbox.Messages.Count == 0)
     {
         return ExitEmpty;
     }
 
     Console.WriteLine($"{inbox.Messages.Count} mensaje(s) para {agent}");
-    var index = 0;
-    foreach (var message in inbox.Messages)
+    int index = 0;
+    foreach (Message message in inbox.Messages)
     {
         Console.WriteLine();
         Console.WriteLine($"[{++index}] {message.Kind.ToString().ToLowerInvariant()} {message.Id}  de {message.From}  hilo {message.ThreadId}  {Ago(message.CreatedAt)}");
@@ -239,7 +239,7 @@ async Task<int> InboxAsync()
         }
 
         Console.WriteLine();
-        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n'))
+        foreach (string line in message.Body.ReplaceLineEndings("\n").Split('\n'))
         {
             Console.WriteLine("    " + line);
         }
@@ -271,8 +271,8 @@ async Task<int> RespondAsync()
         payload["refs"] = refs;
     }
 
-    var response = await http.PostAsync($"/v1/requests/{requestId}/response", Json(payload));
-    var text = await response.Content.ReadAsStringAsync();
+    HttpResponseMessage response = await http.PostAsync($"/v1/requests/{requestId}/response", Json(payload));
+    string text = await response.Content.ReadAsStringAsync();
     if (!response.IsSuccessStatusCode)
     {
         return FailHttp(response, text);
@@ -292,7 +292,7 @@ async Task<int> RespondAsync()
 
 async Task<int> NoteAsync()
 {
-    var to = flags.Value("to");
+    string? to = flags.Value("to");
     if (string.IsNullOrWhiteSpace(to))
     {
         return Fail("Falta --to <agente>.", ExitUsage);
@@ -319,8 +319,8 @@ async Task<int> NoteAsync()
         payload["refs"] = refs;
     }
 
-    var response = await http.PostAsync("/v1/notes", Json(payload));
-    var text = await response.Content.ReadAsStringAsync();
+    HttpResponseMessage response = await http.PostAsync("/v1/notes", Json(payload));
+    string text = await response.Content.ReadAsStringAsync();
     if (!response.IsSuccessStatusCode)
     {
         return FailHttp(response, text);
@@ -345,8 +345,8 @@ async Task<int> ThreadAsync()
         return Fail("Uso: arc thread <thread_id>", ExitUsage);
     }
 
-    var response = await http.GetAsync($"/v1/threads/{threadId}");
-    var text = await response.Content.ReadAsStringAsync();
+    HttpResponseMessage response = await http.GetAsync($"/v1/threads/{threadId}");
+    string text = await response.Content.ReadAsStringAsync();
     if (!response.IsSuccessStatusCode)
     {
         return FailHttp(response, text);
@@ -354,13 +354,13 @@ async Task<int> ThreadAsync()
 
     if (asJson) { Console.WriteLine(text); return ExitOk; }
 
-    var messages = Deserialize<List<Message>>(text) ?? [];
+    List<Message> messages = Deserialize<List<Message>>(text) ?? [];
     Console.WriteLine($"hilo {threadId} · {messages.Count} mensaje(s)");
-    foreach (var message in messages)
+    foreach (Message message in messages)
     {
         Console.WriteLine();
         Console.WriteLine($"{message.CreatedAt.ToLocalTime():HH:mm:ss}  {message.From} -> {message.To}  ({message.Kind.ToString().ToLowerInvariant()})");
-        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n'))
+        foreach (string line in message.Body.ReplaceLineEndings("\n").Split('\n'))
         {
             Console.WriteLine("    " + line);
         }
@@ -370,8 +370,8 @@ async Task<int> ThreadAsync()
 
 async Task<int> GetAsync(string path)
 {
-    var response = await http.GetAsync(path);
-    var text = await response.Content.ReadAsStringAsync();
+    HttpResponseMessage response = await http.GetAsync(path);
+    string text = await response.Content.ReadAsStringAsync();
     if (!response.IsSuccessStatusCode)
     {
         return FailHttp(response, text);
@@ -387,7 +387,7 @@ async Task<int> GetAsync(string path)
 // en Windows los argumentos pasan por la codepage ANSI y destrozan los acentos.
 string? ReadBody()
 {
-    var file = flags.Value("body-file");
+    string? file = flags.Value("body-file");
     if (file is not null)
     {
         if (file == "-")
@@ -415,7 +415,7 @@ string? ReadBody()
 
 JsonNode? ReadRefs()
 {
-    var raw = flags.Value("refs-file") is { } file && File.Exists(file)
+    string? raw = flags.Value("refs-file") is { } file && File.Exists(file)
         ? File.ReadAllText(file, Encoding.UTF8)
         : flags.Value("refs");
 
@@ -443,7 +443,7 @@ static T? Deserialize<T>(string text)
 
 static string Ago(DateTimeOffset moment)
 {
-    var elapsed = DateTimeOffset.UtcNow - moment;
+    TimeSpan elapsed = DateTimeOffset.UtcNow - moment;
     if (elapsed.TotalSeconds < 60)
     {
         return $"hace {(int)elapsed.TotalSeconds}s";
@@ -470,7 +470,7 @@ static int Fail(string message, int code)
 
 static int FailHttp(HttpResponseMessage response, string text)
 {
-    var detail = Deserialize<ErrorBody>(text);
+    ErrorBody? detail = Deserialize<ErrorBody>(text);
     Console.Error.WriteLine(detail is null
         ? $"El hub respondió {(int)response.StatusCode}: {text}"
         : $"El hub respondió {(int)response.StatusCode} ({detail.Error}): {detail.Detail}");
@@ -492,13 +492,13 @@ internal sealed class Flags
         Queue<string> queue = new Queue<string>(args);
         while (queue.Count > 0)
         {
-            var token = queue.Dequeue();
+            string token = queue.Dequeue();
             if (!token.StartsWith("--", StringComparison.Ordinal)) { flags.Positional.Add(token); continue; }
 
-            var name = token[2..];
+            string name = token[2..];
             if (name.Contains('='))
             {
-                var parts = name.Split('=', 2);
+                string[] parts = name.Split('=', 2);
                 flags._values[parts[0]] = parts[1];
             }
             // "-" es un valor legítimo (stdin), no el inicio de otra bandera.
@@ -516,7 +516,7 @@ internal sealed class Flags
 
     public string? Value(string name) => _values.GetValueOrDefault(name);
     public bool Has(string name) => _switches.Contains(name) || _values.ContainsKey(name);
-    public int? Number(string name) => int.TryParse(Value(name), out var value) ? value : null;
+    public int? Number(string name) => int.TryParse(Value(name), out int value) ? value : null;
 }
 
 internal static class Help

@@ -18,7 +18,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
     public Task DisposeAsync()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        foreach (var file in new[] { _path, _path + "-wal", _path + "-shm" })
+        foreach (string file in new[] { _path, _path + "-wal", _path + "-shm" })
         {
             if (File.Exists(file))
             {
@@ -47,7 +47,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
     public async Task Un_mensaje_vuelve_tal_y_como_entro()
     {
         await _store.AddAsync(Request());
-        var stored = await _store.GetAsync("req_1");
+        Message? stored = await _store.GetAsync("req_1");
 
         Assert.NotNull(stored);
         Assert.Equal("¿céntimos o euros?", stored.Body);          // acentos intactos
@@ -62,7 +62,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.AddAsync(Request("req_1", to: "codex-pc2"));
         await _store.AddAsync(Request("req_2", to: "otro-agente"));
 
-        var inbox = await _store.GetInboxAsync("codex-pc2");
+        IReadOnlyList<Message> inbox = await _store.GetInboxAsync("codex-pc2");
         Assert.Equal("req_1", Assert.Single(inbox).Id);
     }
 
@@ -76,7 +76,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
 
         // Salvo que se pidan las peticiones aún sin responder: es la vía de
         // recuperación para un agente que se cayó antes de contestar.
-        var pending = await _store.GetInboxAsync("codex-pc2", includeUnanswered: true);
+        IReadOnlyList<Message> pending = await _store.GetInboxAsync("codex-pc2", includeUnanswered: true);
         Assert.Equal("req_1", Assert.Single(pending).Id);
     }
 
@@ -97,11 +97,11 @@ public sealed class MessageStoreTests : IAsyncLifetime
             CreatedAt = DateTimeOffset.UtcNow
         });
 
-        var request = await _store.GetAsync("req_1");
+        Message? request = await _store.GetAsync("req_1");
         Assert.Equal(MessageStatus.Answered, request!.Status);
         Assert.NotNull(request.AnsweredAt);
 
-        var response = await _store.GetResponseForAsync("req_1");
+        Message? response = await _store.GetResponseForAsync("req_1");
         Assert.Equal("res_1", response!.Id);
 
         // Y una petición respondida ya no reclama atención.
@@ -130,7 +130,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
             CreatedAt = DateTimeOffset.UtcNow.AddSeconds(1)
         });
 
-        var thread = await _store.GetThreadAsync("thr_1");
+        IReadOnlyList<Message> thread = await _store.GetThreadAsync("thr_1");
         Assert.Equal([MessageKind.Request, MessageKind.Response], thread.Select(m => m.Kind));
     }
 
@@ -167,14 +167,14 @@ public sealed class MessageStoreTests : IAsyncLifetime
     [Fact]
     public async Task El_indice_resume_cada_conversacion_y_pone_delante_la_ultima()
     {
-        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         await _store.AddAsync(Request() with { CreatedAt = now.AddMinutes(-10) });
         await _store.AddAsync(Request("req_2", to: "otro-agente") with
         {
             ThreadId = "thr_2", Subject = "Otra cosa", CreatedAt = now
         });
 
-        var threads = await _store.ListThreadsAsync();
+        IReadOnlyList<ThreadSummary> threads = await _store.ListThreadsAsync();
 
         Assert.Equal(["thr_2", "thr_1"], threads.Select(thread => thread.ThreadId));
         Assert.Equal("Contrato de pagos", threads[1].Subject);
@@ -188,7 +188,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.TouchAgentAsync("claude-pc1", "claude-code", "192.168.1.10", sentMessage: true);
         await _store.TouchAgentAsync("claude-pc1", null, null, sentMessage: true);
 
-        var agent = Assert.Single(await _store.ListAgentsAsync());
+        AgentInfo agent = Assert.Single(await _store.ListAgentsAsync());
         Assert.Equal("claude-code", agent.Provider);   // no se borra al no reenviarlo
         Assert.Equal("192.168.1.10", agent.Host);
         Assert.Equal(2, agent.MessagesSent);
@@ -204,7 +204,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
     [Fact]
     public async Task Un_cuerpo_al_limite_de_tamano_cabe_entero()
     {
-        var big = new string('x', MessageStore.MaxBodyBytes);
+        string big = new string('x', MessageStore.MaxBodyBytes);
         await _store.AddAsync(Request("req_big", body: big));
         Assert.Equal(big.Length, (await _store.GetAsync("req_big"))!.Body.Length);
     }

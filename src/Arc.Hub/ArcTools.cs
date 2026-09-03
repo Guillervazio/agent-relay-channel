@@ -20,7 +20,7 @@ public sealed class ArcTools
     internal static string Caller(HttpContext context) => (string)context.Items[AgentKey]!;
 
     private static string Caller(IHttpContextAccessor accessor) =>
-        accessor.HttpContext is { } context && context.Items.TryGetValue(AgentKey, out var agent) && agent is string name
+        accessor.HttpContext is { } context && context.Items.TryGetValue(AgentKey, out object? agent) && agent is string name
             ? name
             : throw new ChannelException("bad_agent",
                 "Este servidor MCP no sabe quién eres. Añade la cabecera X-ARC-Agent en la configuración del cliente.", 400);
@@ -40,11 +40,11 @@ public sealed class ArcTools
         [Description("Hilo existente al que encadenar esta petición. Omítelo para abrir uno nuevo.")] string? threadId = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await channel.AskAsync(Caller(accessor), to, body, subject, ParseRefs(refs), threadId, wait, cancellationToken);
+        AskResult result = await channel.AskAsync(Caller(accessor), to, body, subject, ParseRefs(refs), threadId, wait, cancellationToken);
 
         if (result.Outcome == "answered" && result.Response is { } answer)
         {
-            var text = new StringBuilder()
+            StringBuilder text = new StringBuilder()
                 .AppendLine($"{answer.From} respondió (petición {result.RequestId}, hilo {result.ThreadId}):")
                 .AppendLine();
             if (answer.Refs is { } answerRefs)
@@ -70,7 +70,7 @@ public sealed class ArcTools
         [Description("Segundos a esperar. 120 por defecto, 300 como máximo.")] int wait = 120,
         CancellationToken cancellationToken = default)
     {
-        var result = await channel.AwaitResponseAsync(Caller(accessor), requestId, wait, cancellationToken);
+        AskResult result = await channel.AwaitResponseAsync(Caller(accessor), requestId, wait, cancellationToken);
 
         return result.Outcome == "answered" && result.Response is { } answer
             ? $"{answer.From} respondió (hilo {result.ThreadId}):\n\n{answer.Body}"
@@ -87,8 +87,8 @@ public sealed class ArcTools
         [Description("Incluir también las peticiones que ya leíste pero aún no has respondido.")] bool unanswered = false,
         CancellationToken cancellationToken = default)
     {
-        var me = Caller(accessor);
-        var messages = await channel.InboxAsync(me, me, unanswered, wait, cancellationToken);
+        string me = Caller(accessor);
+        IReadOnlyList<Message> messages = await channel.InboxAsync(me, me, unanswered, wait, cancellationToken);
 
         if (messages.Count == 0)
         {
@@ -96,7 +96,7 @@ public sealed class ArcTools
         }
 
         StringBuilder text = new StringBuilder($"{messages.Count} mensaje(s) para {me}:");
-        foreach (var message in messages)
+        foreach (Message message in messages)
         {
             text.AppendLine().AppendLine()
                 .AppendLine($"--- {message.Kind.ToString().ToLowerInvariant()} {message.Id} · de {message.From} · hilo {message.ThreadId} ---");
@@ -129,7 +129,7 @@ public sealed class ArcTools
         [Description("Referencias al repositorio como objeto JSON, por ejemplo {\"commit\":\"a1b2c3d\",\"files\":[\"src/x.cs\"]}.")] string? refs = null,
         CancellationToken cancellationToken = default)
     {
-        var response = await channel.RespondAsync(Caller(accessor), requestId, body, ParseRefs(refs), cancellationToken);
+        Message response = await channel.RespondAsync(Caller(accessor), requestId, body, ParseRefs(refs), cancellationToken);
         return $"Respuesta entregada a {response.To} (petición {requestId}, hilo {response.ThreadId}).";
     }
 
@@ -145,7 +145,7 @@ public sealed class ArcTools
         [Description("Hilo existente al que encadenar el aviso.")] string? threadId = null,
         CancellationToken cancellationToken = default)
     {
-        var note = await channel.NoteAsync(Caller(accessor), to, body, subject, ParseRefs(refs), threadId, cancellationToken);
+        Message note = await channel.NoteAsync(Caller(accessor), to, body, subject, ParseRefs(refs), threadId, cancellationToken);
         return $"Aviso enviado a {to} (hilo {note.ThreadId}). Lo verá la próxima vez que mire su buzón.";
     }
 
@@ -156,14 +156,14 @@ public sealed class ArcTools
         [Description("Identificador del hilo, del tipo 'thr_1a2b3c'.")] string threadId,
         CancellationToken cancellationToken = default)
     {
-        var messages = await channel.Store.GetThreadAsync(threadId, cancellationToken);
+        IReadOnlyList<Message> messages = await channel.Store.GetThreadAsync(threadId, cancellationToken);
         if (messages.Count == 0)
         {
             return $"No existe el hilo {threadId}.";
         }
 
         StringBuilder text = new StringBuilder($"Hilo {threadId} · {messages.Count} mensaje(s):");
-        foreach (var message in messages)
+        foreach (Message message in messages)
         {
             text.AppendLine().AppendLine()
                 .AppendLine($"[{message.CreatedAt.ToLocalTime():HH:mm:ss}] {message.From} -> {message.To} ({message.Kind.ToString().ToLowerInvariant()})")
@@ -177,14 +177,14 @@ public sealed class ArcTools
                  "Úsala si no sabes a quién dirigirte.")]
     public static async Task<string> AgentsAsync(ChannelService channel, CancellationToken cancellationToken = default)
     {
-        var agents = await channel.Store.ListAgentsAsync(cancellationToken);
+        IReadOnlyList<AgentInfo> agents = await channel.Store.ListAgentsAsync(cancellationToken);
         if (agents.Count == 0)
         {
             return "Todavía no se ha conectado ningún agente.";
         }
 
         StringBuilder text = new StringBuilder("Agentes conocidos:");
-        foreach (var agent in agents)
+        foreach (AgentInfo agent in agents)
         {
             text.AppendLine().Append($"  {agent.Id}");
             if (agent.Provider is { Length: > 0 } provider)

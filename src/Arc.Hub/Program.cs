@@ -1,18 +1,19 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Arc.Core;
 using Arc.Hub;
 using Microsoft.AspNetCore.Http.Json;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // ---------- Configuración ----------
 
-var databasePath = Environment.GetEnvironmentVariable("ARC_DB")
+string databasePath = Environment.GetEnvironmentVariable("ARC_DB")
                    ?? Path.Combine(AppContext.BaseDirectory, "arc.db");
-var token = Environment.GetEnvironmentVariable("ARC_TOKEN");
-var allowAnonymous = Environment.GetEnvironmentVariable("ARC_ALLOW_ANONYMOUS") == "1";
-var maxWaitSeconds = int.TryParse(Environment.GetEnvironmentVariable("ARC_MAX_WAIT"), out var configured)
+string? token = Environment.GetEnvironmentVariable("ARC_TOKEN");
+bool allowAnonymous = Environment.GetEnvironmentVariable("ARC_ALLOW_ANONYMOUS") == "1";
+int maxWaitSeconds = int.TryParse(Environment.GetEnvironmentVariable("ARC_MAX_WAIT"), out int configured)
     ? configured
     : 300;
 
@@ -33,7 +34,7 @@ if (string.IsNullOrWhiteSpace(token) && !allowAnonymous)
 }
 
 // Sin token sólo se escucha en loopback: un canal anónimo no sale de la máquina.
-var defaultUrls = allowAnonymous ? "http://127.0.0.1:8765" : "http://0.0.0.0:8765";
+string defaultUrls = allowAnonymous ? "http://127.0.0.1:8765" : "http://0.0.0.0:8765";
 builder.WebHost.UseUrls((Environment.GetEnvironmentVariable("ARC_URLS") ?? defaultUrls).Split(';'));
 
 builder.WebHost.ConfigureKestrel(options =>
@@ -51,7 +52,7 @@ builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = ArcJson.Options.PropertyNamingPolicy;
     options.SerializerOptions.DefaultIgnoreCondition = ArcJson.Options.DefaultIgnoreCondition;
-    foreach (var converter in ArcJson.Options.Converters)
+    foreach (JsonConverter converter in ArcJson.Options.Converters)
     {
         options.SerializerOptions.Converters.Add(converter);
     }
@@ -74,11 +75,11 @@ builder.Services
     .WithHttpTransport()
     .WithTools<ArcTools>();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 await store.InitializeAsync();
 
-var startedAt = DateTimeOffset.UtcNow;
-var tokenBytes = token is null ? null : Encoding.UTF8.GetBytes(token);
+DateTimeOffset startedAt = DateTimeOffset.UtcNow;
+byte[]? tokenBytes = token is null ? null : Encoding.UTF8.GetBytes(token);
 
 // ---------- Errores ----------
 
@@ -114,7 +115,7 @@ app.Use(async (context, next) =>
 
     if (tokenBytes is not null)
     {
-        var presented = Encoding.UTF8.GetBytes(context.Request.Headers["X-ARC-Token"].ToString());
+        byte[] presented = Encoding.UTF8.GetBytes(context.Request.Headers["X-ARC-Token"].ToString());
         if (!CryptographicOperations.FixedTimeEquals(presented, tokenBytes))
         {
             await Results.Json(new ErrorBody("unauthorized", "Cabecera X-ARC-Token ausente o incorrecta."),
@@ -131,7 +132,7 @@ app.Use(async (context, next) =>
         return;
     }
 
-    var agent = context.Request.Headers["X-ARC-Agent"].ToString();
+    string agent = context.Request.Headers["X-ARC-Agent"].ToString();
     if (string.IsNullOrWhiteSpace(agent) || !ChannelService.AgentNamePattern.IsMatch(agent))
     {
         await Results.Json(new ErrorBody("bad_agent",
@@ -168,7 +169,7 @@ app.MapGet("/healthz", async () => Results.Json(new
 // Crear una petición. Con ?wait=N bloquea hasta la respuesta.
 app.MapPost("/v1/requests", async (CreateRequestBody input, HttpContext context, int? wait) =>
 {
-    var result = await channel.AskAsync(ArcTools.Caller(context), input.To, input.Body, input.Subject,
+    AskResult result = await channel.AskAsync(ArcTools.Caller(context), input.To, input.Body, input.Subject,
         input.Refs, input.ThreadId, wait, context.RequestAborted);
 
     return result.Outcome == "answered"
@@ -179,7 +180,7 @@ app.MapPost("/v1/requests", async (CreateRequestBody input, HttpContext context,
 // Reanudar la espera de una petición que ya expiró antes.
 app.MapGet("/v1/requests/{id}/response", async (string id, HttpContext context, int? wait) =>
 {
-    var result = await channel.AwaitResponseAsync(ArcTools.Caller(context), id, wait, context.RequestAborted);
+    AskResult result = await channel.AwaitResponseAsync(ArcTools.Caller(context), id, wait, context.RequestAborted);
     return result.Outcome == "answered"
         ? Results.Ok(result)
         : Results.Accepted($"/v1/messages/{id}", result);
@@ -197,7 +198,7 @@ app.MapPost("/v1/notes", async (CreateRequestBody input, HttpContext context) =>
 // Buzón propio. Con ?wait=N espera a que llegue algo.
 app.MapGet("/v1/inbox/{agent}", async (string agent, HttpContext context, int? wait, bool? unanswered) =>
 {
-    var messages = await channel.InboxAsync(ArcTools.Caller(context), agent, unanswered ?? false, wait, context.RequestAborted);
+    IReadOnlyList<Message> messages = await channel.InboxAsync(ArcTools.Caller(context), agent, unanswered ?? false, wait, context.RequestAborted);
     return messages.Count == 0
         ? Results.NoContent()
         : Results.Ok(new InboxResult { Agent = agent, Messages = messages });
@@ -205,7 +206,7 @@ app.MapGet("/v1/inbox/{agent}", async (string agent, HttpContext context, int? w
 
 app.MapGet("/v1/messages/{id}", async (string id, HttpContext context) =>
 {
-    var message = await store.GetAsync(id, context.RequestAborted);
+    Message? message = await store.GetAsync(id, context.RequestAborted);
     return message is null
         ? Results.NotFound(new ErrorBody("not_found", "No existe ese mensaje."))
         : Results.Ok(message);
@@ -213,7 +214,7 @@ app.MapGet("/v1/messages/{id}", async (string id, HttpContext context) =>
 
 app.MapGet("/v1/threads/{id}", async (string id, HttpContext context) =>
 {
-    var messages = await store.GetThreadAsync(id, context.RequestAborted);
+    IReadOnlyList<Message> messages = await store.GetThreadAsync(id, context.RequestAborted);
     return messages.Count == 0
         ? Results.NotFound(new ErrorBody("not_found", "No existe ese hilo."))
         : Results.Ok(messages);
@@ -253,16 +254,16 @@ app.MapGet("/v1/observe/threads", async (int? limit, CancellationToken ct) =>
 // esperando a quién) se recalcula por sondeo y sólo se envía cuando cambia.
 app.MapGet("/v1/observe/stream", async (HttpContext context) =>
 {
-    var ct = context.RequestAborted;
+    CancellationToken ct = context.RequestAborted;
     context.Response.Headers.ContentType = "text/event-stream";
     context.Response.Headers.CacheControl = "no-cache";
     context.Response.Headers["X-Accel-Buffering"] = "no"; // por si algún día hay un proxy delante
 
-    using var subscription = events.Subscribe();
+    using Subscription subscription = events.Subscribe();
 
     async Task SendAsync(string type, object payload)
     {
-        var data = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
+        string data = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
         await context.Response.WriteAsync($"event: {type}\ndata: {data}\n\n", ct);
         await context.Response.Body.FlushAsync(ct);
     }
@@ -277,9 +278,9 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
             observers = events.SubscriberCount,
             server_time = DateTimeOffset.UtcNow
         };
-        var serialized = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
+        string serialized = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
         // server_time cambia siempre; se compara sin él para no emitir estado inmóvil.
-        var fingerprint = System.Text.Json.JsonSerializer.Serialize(new { payload.waiters, payload.agents, payload.observers }, ArcJson.Compact);
+        string fingerprint = System.Text.Json.JsonSerializer.Serialize(new { payload.waiters, payload.agents, payload.observers }, ArcJson.Compact);
         if (fingerprint == lastState)
         {
             return;
@@ -295,12 +296,12 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
         await SendAsync("hello", new { max_wait_seconds = maxWaitSeconds, database = databasePath, server_time = DateTimeOffset.UtcNow });
         await SendStateIfChangedAsync();
 
-        var pending = subscription.Reader.WaitToReadAsync(ct).AsTask();
+        Task<bool> pending = subscription.Reader.WaitToReadAsync(ct).AsTask();
         Task tick = Task.Delay(TimeSpan.FromSeconds(2), ct);
 
         while (!ct.IsCancellationRequested)
         {
-            var finished = await Task.WhenAny(pending, tick);
+            Task finished = await Task.WhenAny(pending, tick);
 
             if (finished == pending)
             {
@@ -309,7 +310,7 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
                     break;
                 }
 
-                while (subscription.Reader.TryRead(out var channelEvent))
+                while (subscription.Reader.TryRead(out ChannelEvent? channelEvent))
                 {
                     await SendAsync(channelEvent.Event, channelEvent);
                 }

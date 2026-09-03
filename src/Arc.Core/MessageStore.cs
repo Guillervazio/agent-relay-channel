@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
@@ -33,8 +34,8 @@ public sealed class MessageStore
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = NORMAL;
@@ -71,8 +72,8 @@ public sealed class MessageStore
 
     public async Task AddAsync(Message message, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = InsertSql;
         Bind(command, message);
         await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -86,10 +87,10 @@ public sealed class MessageStore
             throw new ArgumentException("Una respuesta necesita correlation_id.", nameof(response));
         }
 
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using DbTransaction transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        await using (var insert = connection.CreateCommand())
+        await using (SqliteCommand insert = connection.CreateCommand())
         {
             insert.Transaction = (SqliteTransaction)transaction;
             insert.CommandText = InsertSql;
@@ -97,7 +98,7 @@ public sealed class MessageStore
             await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
-        await using (var update = connection.CreateCommand())
+        await using (SqliteCommand update = connection.CreateCommand())
         {
             update.Transaction = (SqliteTransaction)transaction;
             update.CommandText = """
@@ -115,22 +116,22 @@ public sealed class MessageStore
 
     public async Task<Message?> GetAsync(string id, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql + " WHERE id = $id";
         command.Parameters.AddWithValue("$id", id);
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Read(reader) : null;
     }
 
     /// <summary>La respuesta a un request, si ya llegó. Cinturón para la carrera del long-poll.</summary>
     public async Task<Message?> GetResponseForAsync(string requestId, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql + " WHERE correlation_id = $id AND kind = 'response' ORDER BY created_at LIMIT 1";
         command.Parameters.AddWithValue("$id", requestId);
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Read(reader) : null;
     }
 
@@ -140,15 +141,15 @@ public sealed class MessageStore
     /// </summary>
     public async Task<IReadOnlyList<Message>> GetInboxAsync(string agent, bool includeUnanswered = false, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql + (includeUnanswered
             ? " WHERE to_agent = $agent AND (status = 'pending' OR (status = 'delivered' AND kind = 'request')) ORDER BY created_at"
             : " WHERE to_agent = $agent AND status = 'pending' ORDER BY created_at");
         command.Parameters.AddWithValue("$agent", agent);
 
         List<Message> messages = new List<Message>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
             messages.Add(Read(reader));
@@ -159,20 +160,20 @@ public sealed class MessageStore
 
     public async Task MarkDeliveredAsync(IEnumerable<string> ids, CancellationToken ct = default)
     {
-        var list = ids as IReadOnlyCollection<string> ?? ids.ToList();
+        IReadOnlyCollection<string> list = ids as IReadOnlyCollection<string> ?? ids.ToList();
         if (list.Count == 0)
         {
             return;
         }
 
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using DbTransaction transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.Transaction = (SqliteTransaction)transaction;
         command.CommandText = "UPDATE messages SET status = 'delivered' WHERE id = $id AND status = 'pending'";
-        var parameter = command.Parameters.Add("$id", SqliteType.Text);
+        SqliteParameter parameter = command.Parameters.Add("$id", SqliteType.Text);
 
-        foreach (var id in list)
+        foreach (string id in list)
         {
             parameter.Value = id;
             await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -186,8 +187,8 @@ public sealed class MessageStore
     /// </summary>
     public async Task<IReadOnlyList<Message>> GetRecentAsync(int limit, string? threadId = null, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql
             + (threadId is null ? "" : " WHERE thread_id = $thread")
             + " ORDER BY created_at DESC, rowid DESC LIMIT $limit";
@@ -199,7 +200,7 @@ public sealed class MessageStore
         command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 2000));
 
         List<Message> messages = new List<Message>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
             messages.Add(Read(reader));
@@ -211,13 +212,13 @@ public sealed class MessageStore
 
     public async Task<IReadOnlyList<Message>> GetThreadAsync(string threadId, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql + " WHERE thread_id = $thread ORDER BY created_at";
         command.Parameters.AddWithValue("$thread", threadId);
 
         List<Message> messages = new List<Message>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
             messages.Add(Read(reader));
@@ -236,8 +237,8 @@ public sealed class MessageStore
     /// </summary>
     public async Task<IReadOnlyList<ThreadSummary>> ListThreadsAsync(int limit = 200, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
             SELECT m.thread_id,
                    COUNT(*),
@@ -260,11 +261,11 @@ public sealed class MessageStore
         command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 2000));
 
         List<ThreadSummary> threads = new List<ThreadSummary>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
             // El separador es seguro: AgentNamePattern no admite comas en un nombre.
-            var participants = reader.IsDBNull(6)
+            string[] participants = reader.IsDBNull(6)
                 ? Array.Empty<string>()
                 : reader.GetString(6).Split(',', StringSplitOptions.RemoveEmptyEntries);
             Array.Sort(participants, StringComparer.Ordinal);
@@ -285,8 +286,8 @@ public sealed class MessageStore
 
     public async Task TouchAgentAsync(string id, string? provider, string? host, bool sentMessage = false, CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO agents (id, provider, host, last_seen, messages_sent)
             VALUES ($id, $provider, $host, $last_seen, $sent)
@@ -306,12 +307,12 @@ public sealed class MessageStore
 
     public async Task<IReadOnlyList<AgentInfo>> ListAgentsAsync(CancellationToken ct = default)
     {
-        await using var connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
+        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT id, provider, host, last_seen, messages_sent FROM agents ORDER BY id";
 
         List<AgentInfo> agents = new List<AgentInfo>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
             agents.Add(new AgentInfo

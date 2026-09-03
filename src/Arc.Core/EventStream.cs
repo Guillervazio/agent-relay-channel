@@ -48,7 +48,7 @@ public sealed class EventStream
 
     public void Publish(ChannelEvent channelEvent)
     {
-        foreach (var (_, channel) in _subscribers)
+        foreach ((Guid _, Channel<ChannelEvent> channel) in _subscribers)
         {
             channel.Writer.TryWrite(channelEvent);
         }
@@ -67,7 +67,7 @@ public sealed class EventStream
 
     internal void Unsubscribe(Guid id)
     {
-        if (_subscribers.TryRemove(id, out var channel))
+        if (_subscribers.TryRemove(id, out Channel<ChannelEvent> channel))
         {
             channel.Writer.TryComplete();
         }

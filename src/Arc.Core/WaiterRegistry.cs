@@ -24,7 +24,7 @@ public sealed class WaiterRegistry
     /// </summary>
     public Waiter Register(string key)
     {
-        var slots = _keys.GetOrAdd(key, static _ => new ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>());
+        ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots = _keys.GetOrAdd(key, static _ => new ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>());
         Guid id = Guid.NewGuid();
         // RunContinuationsAsynchronously: la continuación no debe ejecutarse en el hilo
         // que está sirviendo la petición HTTP de escritura.
@@ -36,13 +36,13 @@ public sealed class WaiterRegistry
     /// <summary>Despierta a todos los que esperaban esta clave.</summary>
     public int Signal(string key, Message message)
     {
-        if (!_keys.TryGetValue(key, out var slots))
+        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots))
         {
             return 0;
         }
 
-        var woken = 0;
-        foreach (var (_, tcs) in slots)
+        int woken = 0;
+        foreach ((Guid _, TaskCompletionSource<Message?> tcs) in slots)
         {
             if (tcs.TrySetResult(message))
             {
@@ -54,7 +54,7 @@ public sealed class WaiterRegistry
 
     internal void Unregister(string key, Guid id)
     {
-        if (!_keys.TryGetValue(key, out var slots))
+        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots))
         {
             return;
         }
@@ -70,9 +70,9 @@ public sealed class WaiterRegistry
     public IReadOnlyDictionary<string, int> Snapshot()
     {
         Dictionary<string, int> result = new Dictionary<string, int>();
-        foreach (var (key, slots) in _keys)
+        foreach ((string key, ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots) in _keys)
         {
-            var count = slots.Count;
+            int count = slots.Count;
             if (count > 0)
             {
                 result[key] = count;
@@ -115,7 +115,7 @@ public sealed class Waiter : IDisposable
         cts.CancelAfter(timeout);
 
         // Cancelar (por timeout o porque el cliente cortó) resuelve la espera como "sin mensaje".
-        await using var registration = cts.Token.Register(
+        await using CancellationTokenRegistration registration = cts.Token.Register(
             static state => ((TaskCompletionSource<Message?>)state!).TrySetResult(null), _tcs);
 
         return await _tcs.Task.ConfigureAwait(false);
