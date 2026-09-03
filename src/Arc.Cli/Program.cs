@@ -18,7 +18,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 }
 
 var command = args[0];
-var flags = Flags.Parse(args.Skip(1));
+Flags flags = Flags.Parse(args.Skip(1));
 
 var url = (flags.Value("url") ?? Environment.GetEnvironmentVariable("ARC_URL") ?? "http://127.0.0.1:8765").TrimEnd('/');
 var agent = flags.Value("agent") ?? Environment.GetEnvironmentVariable("ARC_AGENT");
@@ -31,16 +31,22 @@ if (string.IsNullOrWhiteSpace(agent))
     return ExitUsage;
 }
 
-using var http = new HttpClient
+using HttpClient http = new HttpClient
 {
     BaseAddress = new Uri(url),
     // Por encima del tope del hub: quien decide cuánto se espera es el servidor.
     Timeout = TimeSpan.FromSeconds(400)
 };
 http.DefaultRequestHeaders.Add("X-ARC-Agent", agent);
-if (!string.IsNullOrWhiteSpace(token)) http.DefaultRequestHeaders.Add("X-ARC-Token", token);
+if (!string.IsNullOrWhiteSpace(token))
+{
+    http.DefaultRequestHeaders.Add("X-ARC-Token", token);
+}
+
 if (Environment.GetEnvironmentVariable("ARC_PROVIDER") is { Length: > 0 } provider)
+{
     http.DefaultRequestHeaders.Add("X-ARC-Provider", provider);
+}
 
 try
 {
@@ -71,25 +77,50 @@ catch (TaskCanceledException)
 async Task<int> AskAsync()
 {
     var to = flags.Value("to");
-    if (string.IsNullOrWhiteSpace(to)) return Fail("Falta --to <agente>.", ExitUsage);
+    if (string.IsNullOrWhiteSpace(to))
+    {
+        return Fail("Falta --to <agente>.", ExitUsage);
+    }
 
-    if (ReadBody() is not { } body) return ExitUsage;
+    if (ReadBody() is not { } body)
+    {
+        return ExitUsage;
+    }
+
     var wait = flags.Number("wait") ?? 120;
 
-    var payload = new JsonObject { ["to"] = to, ["body"] = body };
-    if (flags.Value("subject") is { Length: > 0 } subject) payload["subject"] = subject;
-    if (flags.Value("thread") is { Length: > 0 } thread) payload["thread_id"] = thread;
-    if (ReadRefs() is { } refs) payload["refs"] = refs;
+    JsonObject payload = new JsonObject { ["to"] = to, ["body"] = body };
+    if (flags.Value("subject") is { Length: > 0 } subject)
+    {
+        payload["subject"] = subject;
+    }
+
+    if (flags.Value("thread") is { Length: > 0 } thread)
+    {
+        payload["thread_id"] = thread;
+    }
+
+    if (ReadRefs() is { } refs)
+    {
+        payload["refs"] = refs;
+    }
 
     var started = DateTimeOffset.UtcNow;
     var response = await http.PostAsync($"/v1/requests?wait={wait}", Json(payload));
     var text = await response.Content.ReadAsStringAsync();
 
-    if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted)) return FailHttp(response, text);
+    if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted))
+    {
+        return FailHttp(response, text);
+    }
+
     if (asJson) { Console.WriteLine(text); }
 
     var result = Deserialize<AskResult>(text);
-    if (result is null) return Fail("Respuesta del hub ilegible.", ExitError);
+    if (result is null)
+    {
+        return Fail("Respuesta del hub ilegible.", ExitError);
+    }
 
     if (result.Outcome == "answered" && result.Response is { } answer)
     {
@@ -97,7 +128,11 @@ async Task<int> AskAsync()
         {
             var seconds = (int)(DateTimeOffset.UtcNow - started).TotalSeconds;
             Console.WriteLine($"Respondido por {answer.From} en {seconds}s  ({result.RequestId} · hilo {result.ThreadId})");
-            if (answer.Refs is { } answerRefs) Console.WriteLine($"refs: {answerRefs.GetRawText()}");
+            if (answer.Refs is { } answerRefs)
+            {
+                Console.WriteLine($"refs: {answerRefs.GetRawText()}");
+            }
+
             Console.WriteLine();
             Console.WriteLine(answer.Body);
         }
@@ -115,14 +150,23 @@ async Task<int> AskAsync()
 async Task<int> AwaitAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } requestId)
+    {
         return Fail("Uso: arc await <request_id> [--wait N]", ExitUsage);
+    }
 
     var wait = flags.Number("wait") ?? 120;
     var response = await http.GetAsync($"/v1/requests/{requestId}/response?wait={wait}");
     var text = await response.Content.ReadAsStringAsync();
 
-    if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted)) return FailHttp(response, text);
-    if (asJson) Console.WriteLine(text);
+    if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.Accepted))
+    {
+        return FailHttp(response, text);
+    }
+
+    if (asJson)
+    {
+        Console.WriteLine(text);
+    }
 
     var result = Deserialize<AskResult>(text);
     if (result?.Outcome == "answered" && result.Response is { } answer)
@@ -136,7 +180,11 @@ async Task<int> AwaitAsync()
         return ExitOk;
     }
 
-    if (!asJson) Console.WriteLine($"{requestId} sigue sin respuesta.");
+    if (!asJson)
+    {
+        Console.WriteLine($"{requestId} sigue sin respuesta.");
+    }
+
     return ExitTimeout;
 }
 
@@ -150,16 +198,29 @@ async Task<int> InboxAsync()
 
     if (response.StatusCode == HttpStatusCode.NoContent)
     {
-        if (asJson) Console.WriteLine("""{"messages":[]}""");
-        else Console.WriteLine($"Sin mensajes para {agent}.");
+        if (asJson)
+        {
+            Console.WriteLine("""{"messages":[]}""");
+        }
+        else
+        {
+            Console.WriteLine($"Sin mensajes para {agent}.");
+        }
+
         return ExitEmpty;
     }
-    if (!response.IsSuccessStatusCode) return FailHttp(response, text);
+    if (!response.IsSuccessStatusCode)
+    {
+        return FailHttp(response, text);
+    }
 
     if (asJson) { Console.WriteLine(text); return ExitOk; }
 
     var inbox = Deserialize<InboxResult>(text);
-    if (inbox is null || inbox.Messages.Count == 0) return ExitEmpty;
+    if (inbox is null || inbox.Messages.Count == 0)
+    {
+        return ExitEmpty;
+    }
 
     Console.WriteLine($"{inbox.Messages.Count} mensaje(s) para {agent}");
     var index = 0;
@@ -167,10 +228,22 @@ async Task<int> InboxAsync()
     {
         Console.WriteLine();
         Console.WriteLine($"[{++index}] {message.Kind.ToString().ToLowerInvariant()} {message.Id}  de {message.From}  hilo {message.ThreadId}  {Ago(message.CreatedAt)}");
-        if (message.Subject is { Length: > 0 } subject) Console.WriteLine($"    asunto: {subject}");
-        if (message.Refs is { } refs) Console.WriteLine($"    refs: {refs.GetRawText()}");
+        if (message.Subject is { Length: > 0 } subject)
+        {
+            Console.WriteLine($"    asunto: {subject}");
+        }
+
+        if (message.Refs is { } refs)
+        {
+            Console.WriteLine($"    refs: {refs.GetRawText()}");
+        }
+
         Console.WriteLine();
-        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n')) Console.WriteLine("    " + line);
+        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n'))
+        {
+            Console.WriteLine("    " + line);
+        }
+
         if (message.Kind == MessageKind.Request)
         {
             Console.WriteLine();
@@ -183,49 +256,101 @@ async Task<int> InboxAsync()
 async Task<int> RespondAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } requestId)
+    {
         return Fail("Uso: arc respond <request_id> --body-file <fichero>", ExitUsage);
-    if (ReadBody() is not { } body) return ExitUsage;
+    }
 
-    var payload = new JsonObject { ["body"] = body };
-    if (ReadRefs() is { } refs) payload["refs"] = refs;
+    if (ReadBody() is not { } body)
+    {
+        return ExitUsage;
+    }
+
+    JsonObject payload = new JsonObject { ["body"] = body };
+    if (ReadRefs() is { } refs)
+    {
+        payload["refs"] = refs;
+    }
 
     var response = await http.PostAsync($"/v1/requests/{requestId}/response", Json(payload));
     var text = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return FailHttp(response, text);
+    if (!response.IsSuccessStatusCode)
+    {
+        return FailHttp(response, text);
+    }
 
-    if (asJson) Console.WriteLine(text);
-    else Console.WriteLine($"Respuesta entregada a la petición {requestId}.");
+    if (asJson)
+    {
+        Console.WriteLine(text);
+    }
+    else
+    {
+        Console.WriteLine($"Respuesta entregada a la petición {requestId}.");
+    }
+
     return ExitOk;
 }
 
 async Task<int> NoteAsync()
 {
     var to = flags.Value("to");
-    if (string.IsNullOrWhiteSpace(to)) return Fail("Falta --to <agente>.", ExitUsage);
-    if (ReadBody() is not { } body) return ExitUsage;
+    if (string.IsNullOrWhiteSpace(to))
+    {
+        return Fail("Falta --to <agente>.", ExitUsage);
+    }
 
-    var payload = new JsonObject { ["to"] = to, ["body"] = body };
-    if (flags.Value("subject") is { Length: > 0 } subject) payload["subject"] = subject;
-    if (flags.Value("thread") is { Length: > 0 } thread) payload["thread_id"] = thread;
-    if (ReadRefs() is { } refs) payload["refs"] = refs;
+    if (ReadBody() is not { } body)
+    {
+        return ExitUsage;
+    }
+
+    JsonObject payload = new JsonObject { ["to"] = to, ["body"] = body };
+    if (flags.Value("subject") is { Length: > 0 } subject)
+    {
+        payload["subject"] = subject;
+    }
+
+    if (flags.Value("thread") is { Length: > 0 } thread)
+    {
+        payload["thread_id"] = thread;
+    }
+
+    if (ReadRefs() is { } refs)
+    {
+        payload["refs"] = refs;
+    }
 
     var response = await http.PostAsync("/v1/notes", Json(payload));
     var text = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return FailHttp(response, text);
+    if (!response.IsSuccessStatusCode)
+    {
+        return FailHttp(response, text);
+    }
 
-    if (asJson) Console.WriteLine(text);
-    else Console.WriteLine($"Aviso enviado a {to}.");
+    if (asJson)
+    {
+        Console.WriteLine(text);
+    }
+    else
+    {
+        Console.WriteLine($"Aviso enviado a {to}.");
+    }
+
     return ExitOk;
 }
 
 async Task<int> ThreadAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } threadId)
+    {
         return Fail("Uso: arc thread <thread_id>", ExitUsage);
+    }
 
     var response = await http.GetAsync($"/v1/threads/{threadId}");
     var text = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return FailHttp(response, text);
+    if (!response.IsSuccessStatusCode)
+    {
+        return FailHttp(response, text);
+    }
 
     if (asJson) { Console.WriteLine(text); return ExitOk; }
 
@@ -235,7 +360,10 @@ async Task<int> ThreadAsync()
     {
         Console.WriteLine();
         Console.WriteLine($"{message.CreatedAt.ToLocalTime():HH:mm:ss}  {message.From} -> {message.To}  ({message.Kind.ToString().ToLowerInvariant()})");
-        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n')) Console.WriteLine("    " + line);
+        foreach (var line in message.Body.ReplaceLineEndings("\n").Split('\n'))
+        {
+            Console.WriteLine("    " + line);
+        }
     }
     return ExitOk;
 }
@@ -244,7 +372,11 @@ async Task<int> GetAsync(string path)
 {
     var response = await http.GetAsync(path);
     var text = await response.Content.ReadAsStringAsync();
-    if (!response.IsSuccessStatusCode) return FailHttp(response, text);
+    if (!response.IsSuccessStatusCode)
+    {
+        return FailHttp(response, text);
+    }
+
     Console.WriteLine(text);
     return ExitOk;
 }
@@ -258,13 +390,24 @@ string? ReadBody()
     var file = flags.Value("body-file");
     if (file is not null)
     {
-        if (file == "-") return Console.In.ReadToEnd();
+        if (file == "-")
+        {
+            return Console.In.ReadToEnd();
+        }
+
         if (!File.Exists(file)) { Console.Error.WriteLine($"No existe el fichero: {file}"); return null; }
         return File.ReadAllText(file, Encoding.UTF8);
     }
 
-    if (flags.Value("body") is { } inline) return inline;
-    if (flags.Has("stdin")) return Console.In.ReadToEnd();
+    if (flags.Value("body") is { } inline)
+    {
+        return inline;
+    }
+
+    if (flags.Has("stdin"))
+    {
+        return Console.In.ReadToEnd();
+    }
 
     Console.Error.WriteLine("Falta el cuerpo. Usa --body-file <fichero>, --body-file - (stdin) o --body \"texto\".");
     return null;
@@ -276,7 +419,11 @@ JsonNode? ReadRefs()
         ? File.ReadAllText(file, Encoding.UTF8)
         : flags.Value("refs");
 
-    if (string.IsNullOrWhiteSpace(raw)) return null;
+    if (string.IsNullOrWhiteSpace(raw))
+    {
+        return null;
+    }
+
     try { return JsonNode.Parse(raw); }
     catch (JsonException exception)
     {
@@ -297,9 +444,21 @@ static T? Deserialize<T>(string text)
 static string Ago(DateTimeOffset moment)
 {
     var elapsed = DateTimeOffset.UtcNow - moment;
-    if (elapsed.TotalSeconds < 60) return $"hace {(int)elapsed.TotalSeconds}s";
-    if (elapsed.TotalMinutes < 60) return $"hace {(int)elapsed.TotalMinutes}min";
-    if (elapsed.TotalHours < 24) return $"hace {(int)elapsed.TotalHours}h";
+    if (elapsed.TotalSeconds < 60)
+    {
+        return $"hace {(int)elapsed.TotalSeconds}s";
+    }
+
+    if (elapsed.TotalMinutes < 60)
+    {
+        return $"hace {(int)elapsed.TotalMinutes}min";
+    }
+
+    if (elapsed.TotalHours < 24)
+    {
+        return $"hace {(int)elapsed.TotalHours}h";
+    }
+
     return moment.ToLocalTime().ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
 }
 
@@ -329,8 +488,8 @@ internal sealed class Flags
 
     public static Flags Parse(IEnumerable<string> args)
     {
-        var flags = new Flags();
-        var queue = new Queue<string>(args);
+        Flags flags = new Flags();
+        Queue<string> queue = new Queue<string>(args);
         while (queue.Count > 0)
         {
             var token = queue.Dequeue();

@@ -14,7 +14,7 @@ public sealed class MessageStore
 
     public MessageStore(string databasePath)
     {
-        var builder = new SqliteConnectionStringBuilder
+        SqliteConnectionStringBuilder builder = new SqliteConnectionStringBuilder
         {
             DataSource = databasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
@@ -26,7 +26,7 @@ public sealed class MessageStore
 
     private async Task<SqliteConnection> OpenAsync(CancellationToken ct)
     {
-        var connection = new SqliteConnection(_connectionString);
+        SqliteConnection connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(ct).ConfigureAwait(false);
         return connection;
     }
@@ -82,7 +82,9 @@ public sealed class MessageStore
     public async Task AddResponseAsync(Message response, CancellationToken ct = default)
     {
         if (response.CorrelationId is null)
+        {
             throw new ArgumentException("Una respuesta necesita correlation_id.", nameof(response));
+        }
 
         await using var connection = await OpenAsync(ct).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -145,16 +147,23 @@ public sealed class MessageStore
             : " WHERE to_agent = $agent AND status = 'pending' ORDER BY created_at");
         command.Parameters.AddWithValue("$agent", agent);
 
-        var messages = new List<Message>();
+        List<Message> messages = new List<Message>();
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false)) messages.Add(Read(reader));
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            messages.Add(Read(reader));
+        }
+
         return messages;
     }
 
     public async Task MarkDeliveredAsync(IEnumerable<string> ids, CancellationToken ct = default)
     {
         var list = ids as IReadOnlyCollection<string> ?? ids.ToList();
-        if (list.Count == 0) return;
+        if (list.Count == 0)
+        {
+            return;
+        }
 
         await using var connection = await OpenAsync(ct).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -182,12 +191,20 @@ public sealed class MessageStore
         command.CommandText = SelectSql
             + (threadId is null ? "" : " WHERE thread_id = $thread")
             + " ORDER BY created_at DESC, rowid DESC LIMIT $limit";
-        if (threadId is not null) command.Parameters.AddWithValue("$thread", threadId);
+        if (threadId is not null)
+        {
+            command.Parameters.AddWithValue("$thread", threadId);
+        }
+
         command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 2000));
 
-        var messages = new List<Message>();
+        List<Message> messages = new List<Message>();
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false)) messages.Add(Read(reader));
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            messages.Add(Read(reader));
+        }
+
         messages.Reverse();
         return messages;
     }
@@ -199,9 +216,13 @@ public sealed class MessageStore
         command.CommandText = SelectSql + " WHERE thread_id = $thread ORDER BY created_at";
         command.Parameters.AddWithValue("$thread", threadId);
 
-        var messages = new List<Message>();
+        List<Message> messages = new List<Message>();
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false)) messages.Add(Read(reader));
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            messages.Add(Read(reader));
+        }
+
         return messages;
     }
 
@@ -238,7 +259,7 @@ public sealed class MessageStore
             """;
         command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 2000));
 
-        var threads = new List<ThreadSummary>();
+        List<ThreadSummary> threads = new List<ThreadSummary>();
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {
@@ -289,7 +310,7 @@ public sealed class MessageStore
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT id, provider, host, last_seen, messages_sent FROM agents ORDER BY id";
 
-        var agents = new List<AgentInfo>();
+        List<AgentInfo> agents = new List<AgentInfo>();
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
         {

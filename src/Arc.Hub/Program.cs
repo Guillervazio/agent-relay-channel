@@ -51,13 +51,16 @@ builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = ArcJson.Options.PropertyNamingPolicy;
     options.SerializerOptions.DefaultIgnoreCondition = ArcJson.Options.DefaultIgnoreCondition;
-    foreach (var converter in ArcJson.Options.Converters) options.SerializerOptions.Converters.Add(converter);
+    foreach (var converter in ArcJson.Options.Converters)
+    {
+        options.SerializerOptions.Converters.Add(converter);
+    }
 });
 
-var store = new MessageStore(databasePath);
-var registry = new WaiterRegistry();
-var events = new EventStream();
-var channel = new ChannelService(store, registry, maxWaitSeconds, events);
+MessageStore store = new MessageStore(databasePath);
+WaiterRegistry registry = new WaiterRegistry();
+EventStream events = new EventStream();
+ChannelService channel = new ChannelService(store, registry, maxWaitSeconds, events);
 
 builder.Services.AddSingleton(store);
 builder.Services.AddSingleton(registry);
@@ -277,7 +280,11 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
         var serialized = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
         // server_time cambia siempre; se compara sin él para no emitir estado inmóvil.
         var fingerprint = System.Text.Json.JsonSerializer.Serialize(new { payload.waiters, payload.agents, payload.observers }, ArcJson.Compact);
-        if (fingerprint == lastState) return;
+        if (fingerprint == lastState)
+        {
+            return;
+        }
+
         lastState = fingerprint;
         await context.Response.WriteAsync($"event: state\ndata: {serialized}\n\n", ct);
         await context.Response.Body.FlushAsync(ct);
@@ -289,7 +296,7 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
         await SendStateIfChangedAsync();
 
         var pending = subscription.Reader.WaitToReadAsync(ct).AsTask();
-        var tick = Task.Delay(TimeSpan.FromSeconds(2), ct);
+        Task tick = Task.Delay(TimeSpan.FromSeconds(2), ct);
 
         while (!ct.IsCancellationRequested)
         {
@@ -297,9 +304,16 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
 
             if (finished == pending)
             {
-                if (!await pending) break;
+                if (!await pending)
+                {
+                    break;
+                }
+
                 while (subscription.Reader.TryRead(out var channelEvent))
+                {
                     await SendAsync(channelEvent.Event, channelEvent);
+                }
+
                 pending = subscription.Reader.WaitToReadAsync(ct).AsTask();
             }
             else

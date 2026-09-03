@@ -19,7 +19,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var file in new[] { _path, _path + "-wal", _path + "-shm" })
-            if (File.Exists(file)) File.Delete(file);
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+
         return Task.CompletedTask;
     }
 
@@ -105,7 +111,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
     [Fact]
     public async Task Una_respuesta_necesita_a_quien_responde()
     {
-        var huerfana = new Message
+        Message huerfana = new Message
         {
             Id = "res_1", ThreadId = "thr_1", From = "codex-pc2", To = "claude-pc1",
             Kind = MessageKind.Response, Body = "x", CreatedAt = DateTimeOffset.UtcNow
@@ -141,7 +147,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
         // El segundo hilo se queda con la pregunta en el aire.
         await _store.AddAsync(Request("req_2") with { ThreadId = "thr_2" });
 
-        var threads = (await _store.ListThreadsAsync()).ToDictionary(thread => thread.ThreadId);
+        Dictionary<string, ThreadSummary> threads = (await _store.ListThreadsAsync()).ToDictionary(thread => thread.ThreadId);
 
         Assert.True(threads["thr_1"].Closed);
         Assert.Equal(0, threads["thr_1"].OpenRequests);

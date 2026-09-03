@@ -34,7 +34,10 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         ValidateAgent(to, "bad_recipient");
         if (to == from)
+        {
             throw new ChannelException("self_addressed", "Un agente no puede enviarse peticiones a sí mismo.", 400);
+        }
+
         ValidateBody(body);
 
         var requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
@@ -44,7 +47,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         // inmediato, la señal encuentra al waiter ya montado y no se pierde.
         using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
 
-        var message = new Message
+        Message message = new Message
         {
             Id = requestId,
             ThreadId = thread,
@@ -65,7 +68,9 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
         var seconds = Clamp(wait);
         if (seconds == 0)
+        {
             return new AskResult { Outcome = "queued", RequestId = requestId, ThreadId = thread };
+        }
 
         var response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
                        ?? await store.GetResponseForAsync(requestId, ct);
@@ -80,9 +85,14 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         var request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
+        {
             throw new ChannelException("not_found", "No existe esa petición.", 404);
+        }
+
         if (request.From != caller)
+        {
             throw new ChannelException("forbidden", "Sólo el emisor puede esperar esta respuesta.", 403);
+        }
 
         using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
 
@@ -105,13 +115,21 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
         var request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
+        {
             throw new ChannelException("not_found", "No existe esa petición.", 404);
-        if (request.To != from)
-            throw new ChannelException("forbidden", $"Esta petición va dirigida a '{request.To}'.", 403);
-        if (request.Status == MessageStatus.Answered)
-            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+        }
 
-        var response = new Message
+        if (request.To != from)
+        {
+            throw new ChannelException("forbidden", $"Esta petición va dirigida a '{request.To}'.", 403);
+        }
+
+        if (request.Status == MessageStatus.Answered)
+        {
+            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+        }
+
+        Message response = new Message
         {
             Id = "res_" + Guid.NewGuid().ToString("n")[..16],
             ThreadId = request.ThreadId,
@@ -144,7 +162,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         ValidateAgent(to, "bad_recipient");
         ValidateBody(body);
 
-        var note = new Message
+        Message note = new Message
         {
             Id = "not_" + Guid.NewGuid().ToString("n")[..16],
             ThreadId = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16],
@@ -171,7 +189,9 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         string caller, string agent, bool includeUnanswered, int? wait, CancellationToken ct = default)
     {
         if (agent != caller)
+        {
             throw new ChannelException("forbidden", "Un agente sólo puede leer su propio buzón.", 403);
+        }
 
         // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
         using var waiter = registry.Register(WaiterRegistry.InboxKey(agent));
@@ -180,12 +200,14 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         if (messages.Count == 0 && Clamp(wait) is var seconds and > 0)
         {
             if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
+            {
                 messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+            }
         }
 
         if (messages.Count > 0)
         {
-            var justDelivered = messages.Where(m => m.Status == MessageStatus.Pending).Select(m => m.Id).ToList();
+            List<string> justDelivered = messages.Where(m => m.Status == MessageStatus.Pending).Select(m => m.Id).ToList();
             await store.MarkDeliveredAsync(justDelivered, ct);
             events?.PublishDelivered(justDelivered);
         }
@@ -198,17 +220,24 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     public static void ValidateAgent(string? name, string code)
     {
         if (string.IsNullOrWhiteSpace(name) || !AgentNamePattern.IsMatch(name))
+        {
             throw new ChannelException(code,
                 "Nombre de agente ausente o inválido. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64).", 400);
+        }
     }
 
     private static void ValidateBody(string? body)
     {
         if (string.IsNullOrEmpty(body))
+        {
             throw new ChannelException("empty_body", "El cuerpo del mensaje es obligatorio.", 400);
+        }
+
         if (Encoding.UTF8.GetByteCount(body) > MessageStore.MaxBodyBytes)
+        {
             throw new ChannelException("body_too_large",
                 $"Máximo {MessageStore.MaxBodyBytes / 1024} KB. Pasa una referencia al repositorio en 'refs' en vez del contenido.", 400);
+        }
     }
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;

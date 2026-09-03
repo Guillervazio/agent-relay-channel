@@ -16,7 +16,7 @@ internal static class ObserverUi
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Falta el recurso incrustado {ResourceName}.");
-        using var reader = new StreamReader(stream);
+        using StreamReader reader = new StreamReader(stream);
         return reader.ReadToEnd();
     }
 }

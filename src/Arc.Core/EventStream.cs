@@ -1,5 +1,5 @@
-using System.Threading.Channels;
 using System.Collections.Concurrent;
+using System.Threading.Channels;
 
 namespace Arc.Core;
 
@@ -36,19 +36,22 @@ public sealed class EventStream
 
     public Subscription Subscribe()
     {
-        var channel = Channel.CreateBounded<ChannelEvent>(new BoundedChannelOptions(QueueCapacity)
+        Channel<ChannelEvent> channel = Channel.CreateBounded<ChannelEvent>(new BoundedChannelOptions(QueueCapacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true
         });
-        var id = Guid.NewGuid();
+        Guid id = Guid.NewGuid();
         _subscribers[id] = channel;
         return new Subscription(this, id, channel.Reader);
     }
 
     public void Publish(ChannelEvent channelEvent)
     {
-        foreach (var (_, channel) in _subscribers) channel.Writer.TryWrite(channelEvent);
+        foreach (var (_, channel) in _subscribers)
+        {
+            channel.Writer.TryWrite(channelEvent);
+        }
     }
 
     public void PublishMessage(Message message) =>
@@ -56,12 +59,18 @@ public sealed class EventStream
 
     public void PublishDelivered(IReadOnlyList<string> ids)
     {
-        if (ids.Count > 0) Publish(new ChannelEvent { Event = "delivered", Ids = ids });
+        if (ids.Count > 0)
+        {
+            Publish(new ChannelEvent { Event = "delivered", Ids = ids });
+        }
     }
 
     internal void Unsubscribe(Guid id)
     {
-        if (_subscribers.TryRemove(id, out var channel)) channel.Writer.TryComplete();
+        if (_subscribers.TryRemove(id, out var channel))
+        {
+            channel.Writer.TryComplete();
+        }
     }
 }
 

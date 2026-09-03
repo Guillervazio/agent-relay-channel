@@ -25,10 +25,10 @@ public sealed class WaiterRegistry
     public Waiter Register(string key)
     {
         var slots = _keys.GetOrAdd(key, static _ => new ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>());
-        var id = Guid.NewGuid();
+        Guid id = Guid.NewGuid();
         // RunContinuationsAsynchronously: la continuación no debe ejecutarse en el hilo
         // que está sirviendo la petición HTTP de escritura.
-        var tcs = new TaskCompletionSource<Message?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<Message?> tcs = new TaskCompletionSource<Message?>(TaskCreationOptions.RunContinuationsAsynchronously);
         slots[id] = tcs;
         return new Waiter(this, key, id, tcs);
     }
@@ -36,31 +36,47 @@ public sealed class WaiterRegistry
     /// <summary>Despierta a todos los que esperaban esta clave.</summary>
     public int Signal(string key, Message message)
     {
-        if (!_keys.TryGetValue(key, out var slots)) return 0;
+        if (!_keys.TryGetValue(key, out var slots))
+        {
+            return 0;
+        }
 
         var woken = 0;
         foreach (var (_, tcs) in slots)
         {
-            if (tcs.TrySetResult(message)) woken++;
+            if (tcs.TrySetResult(message))
+            {
+                woken++;
+            }
         }
         return woken;
     }
 
     internal void Unregister(string key, Guid id)
     {
-        if (!_keys.TryGetValue(key, out var slots)) return;
+        if (!_keys.TryGetValue(key, out var slots))
+        {
+            return;
+        }
+
         slots.TryRemove(id, out _);
-        if (slots.IsEmpty) _keys.TryRemove(KeyValuePair.Create(key, slots));
+        if (slots.IsEmpty)
+        {
+            _keys.TryRemove(KeyValuePair.Create(key, slots));
+        }
     }
 
     /// <summary>Esperas activas por clave. Para /healthz: hace visible un interbloqueo mutuo.</summary>
     public IReadOnlyDictionary<string, int> Snapshot()
     {
-        var result = new Dictionary<string, int>();
+        Dictionary<string, int> result = new Dictionary<string, int>();
         foreach (var (key, slots) in _keys)
         {
             var count = slots.Count;
-            if (count > 0) result[key] = count;
+            if (count > 0)
+            {
+                result[key] = count;
+            }
         }
         return result;
     }
@@ -85,10 +101,17 @@ public sealed class Waiter : IDisposable
     /// <summary>Devuelve el mensaje que despertó la espera, o null si expiró o se canceló.</summary>
     public async Task<Message?> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        if (_tcs.Task.IsCompleted) return await _tcs.Task.ConfigureAwait(false);
-        if (timeout <= TimeSpan.Zero) return null;
+        if (_tcs.Task.IsCompleted)
+        {
+            return await _tcs.Task.ConfigureAwait(false);
+        }
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (timeout <= TimeSpan.Zero)
+        {
+            return null;
+        }
+
+        using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
 
         // Cancelar (por timeout o porque el cliente cortó) resuelve la espera como "sin mensaje".
@@ -100,7 +123,11 @@ public sealed class Waiter : IDisposable
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         _tcs.TrySetResult(null);
         _registry.Unregister(_key, _id);
     }

@@ -47,7 +47,11 @@ public sealed class ArcTools
             var text = new StringBuilder()
                 .AppendLine($"{answer.From} respondió (petición {result.RequestId}, hilo {result.ThreadId}):")
                 .AppendLine();
-            if (answer.Refs is { } answerRefs) text.AppendLine($"refs: {answerRefs.GetRawText()}").AppendLine();
+            if (answer.Refs is { } answerRefs)
+            {
+                text.AppendLine($"refs: {answerRefs.GetRawText()}").AppendLine();
+            }
+
             return text.Append(answer.Body).ToString();
         }
 
@@ -86,18 +90,31 @@ public sealed class ArcTools
         var me = Caller(accessor);
         var messages = await channel.InboxAsync(me, me, unanswered, wait, cancellationToken);
 
-        if (messages.Count == 0) return $"No hay mensajes para {me}.";
+        if (messages.Count == 0)
+        {
+            return $"No hay mensajes para {me}.";
+        }
 
-        var text = new StringBuilder($"{messages.Count} mensaje(s) para {me}:");
+        StringBuilder text = new StringBuilder($"{messages.Count} mensaje(s) para {me}:");
         foreach (var message in messages)
         {
             text.AppendLine().AppendLine()
                 .AppendLine($"--- {message.Kind.ToString().ToLowerInvariant()} {message.Id} · de {message.From} · hilo {message.ThreadId} ---");
-            if (message.Subject is { Length: > 0 } subject) text.AppendLine($"asunto: {subject}");
-            if (message.Refs is { } refs) text.AppendLine($"refs: {refs.GetRawText()}");
+            if (message.Subject is { Length: > 0 } subject)
+            {
+                text.AppendLine($"asunto: {subject}");
+            }
+
+            if (message.Refs is { } refs)
+            {
+                text.AppendLine($"refs: {refs.GetRawText()}");
+            }
+
             text.AppendLine().AppendLine(message.Body);
             if (message.Kind == MessageKind.Request)
+            {
                 text.Append($"(contesta con arc_respond sobre {message.Id}; puede que te esté esperando ahora mismo)");
+            }
         }
         return text.ToString();
     }
@@ -140,9 +157,12 @@ public sealed class ArcTools
         CancellationToken cancellationToken = default)
     {
         var messages = await channel.Store.GetThreadAsync(threadId, cancellationToken);
-        if (messages.Count == 0) return $"No existe el hilo {threadId}.";
+        if (messages.Count == 0)
+        {
+            return $"No existe el hilo {threadId}.";
+        }
 
-        var text = new StringBuilder($"Hilo {threadId} · {messages.Count} mensaje(s):");
+        StringBuilder text = new StringBuilder($"Hilo {threadId} · {messages.Count} mensaje(s):");
         foreach (var message in messages)
         {
             text.AppendLine().AppendLine()
@@ -158,13 +178,20 @@ public sealed class ArcTools
     public static async Task<string> AgentsAsync(ChannelService channel, CancellationToken cancellationToken = default)
     {
         var agents = await channel.Store.ListAgentsAsync(cancellationToken);
-        if (agents.Count == 0) return "Todavía no se ha conectado ningún agente.";
+        if (agents.Count == 0)
+        {
+            return "Todavía no se ha conectado ningún agente.";
+        }
 
-        var text = new StringBuilder("Agentes conocidos:");
+        StringBuilder text = new StringBuilder("Agentes conocidos:");
         foreach (var agent in agents)
         {
             text.AppendLine().Append($"  {agent.Id}");
-            if (agent.Provider is { Length: > 0 } provider) text.Append($" · {provider}");
+            if (agent.Provider is { Length: > 0 } provider)
+            {
+                text.Append($" · {provider}");
+            }
+
             text.Append($" · visto {agent.LastSeen.ToLocalTime():dd/MM HH:mm} · {agent.MessagesSent} mensaje(s) enviados");
         }
         return text.ToString();
@@ -172,7 +199,11 @@ public sealed class ArcTools
 
     private static JsonElement? ParseRefs(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
         try
         {
             return JsonDocument.Parse(raw).RootElement.Clone();

@@ -23,7 +23,7 @@ public class WaiterRegistryTests
     [Fact]
     public async Task Una_senal_despierta_al_que_espera()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var waiter = registry.Register("inbox:codex-pc2");
 
         var waiting = waiter.WaitAsync(TimeSpan.FromSeconds(10));
@@ -37,10 +37,10 @@ public class WaiterRegistryTests
     [Fact]
     public async Task La_espera_expira_devolviendo_null()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var waiter = registry.Register("inbox:nadie");
 
-        var stopwatch = Stopwatch.StartNew();
+        Stopwatch stopwatch = Stopwatch.StartNew();
         var received = await waiter.WaitAsync(TimeSpan.FromMilliseconds(300));
         stopwatch.Stop();
 
@@ -53,7 +53,7 @@ public class WaiterRegistryTests
     {
         // La carrera real del hub: el destinatario contesta entre el registro
         // del waiter y la llamada a WaitAsync. El mensaje debe seguir ahí.
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var waiter = registry.Register("resp:req_1");
 
         registry.Signal("resp:req_1", AnyMessage("res_1"));
@@ -66,7 +66,7 @@ public class WaiterRegistryTests
     [Fact]
     public async Task Varios_agentes_esperando_la_misma_clave_despiertan_todos()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var first = registry.Register("inbox:codex-pc2");
         using var second = registry.Register("inbox:codex-pc2");
 
@@ -83,7 +83,7 @@ public class WaiterRegistryTests
     [Fact]
     public async Task Una_senal_a_otra_clave_no_despierta()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var waiter = registry.Register("inbox:codex-pc2");
 
         var waiting = waiter.WaitAsync(TimeSpan.FromMilliseconds(300));
@@ -96,9 +96,9 @@ public class WaiterRegistryTests
     public async Task Cancelar_desde_fuera_termina_la_espera()
     {
         // Es el caso de un agente que corta la conexión a mitad del long-poll.
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         using var waiter = registry.Register("inbox:codex-pc2");
-        using var cancellation = new CancellationTokenSource();
+        using CancellationTokenSource cancellation = new CancellationTokenSource();
 
         var waiting = waiter.WaitAsync(TimeSpan.FromSeconds(30), cancellation.Token);
         await cancellation.CancelAsync();
@@ -109,7 +109,7 @@ public class WaiterRegistryTests
     [Fact]
     public void Al_liberar_el_waiter_la_clave_desaparece_del_diagnostico()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         var waiter = registry.Register("inbox:codex-pc2");
         Assert.Equal(1, registry.Snapshot()["inbox:codex-pc2"]);
 
@@ -128,7 +128,7 @@ public class WaiterRegistryTests
     [Fact]
     public async Task Senalar_una_clave_sin_esperas_no_falla()
     {
-        var registry = new WaiterRegistry();
+        WaiterRegistry registry = new WaiterRegistry();
         Assert.Equal(0, registry.Signal("inbox:fantasma", AnyMessage()));
 
         // Y quien llegue después no recibe esa señal perdida.
