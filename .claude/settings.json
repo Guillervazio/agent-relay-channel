@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "extraKnownMarketplaces": {
+    "dotnet-house": {
+      "source": {
+        "source": "github",
+        "repo": "Guillervazio/dotnet-house"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "dotnet-house@dotnet-house": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet build)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet test)",
+      "Bash(dotnet run *)",
+      "Bash(dotnet format *)",
+      "Bash(dotnet format)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet restore)",
+      "Bash(dotnet clean *)",
+      "Bash(dotnet clean)",
+      "Bash(dotnet list *)",
+      "Bash(dotnet publish *)",
+      "Bash(dotnet --info)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet --version)",
+      "Bash(bash scripts/*)",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git log)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git show *)",
+      "Bash(git branch)",
+      "Bash(git remote -v)",
+      "PowerShell(dotnet build *)",
+      "PowerShell(dotnet build)",
+      "PowerShell(dotnet test *)",
+      "PowerShell(dotnet test)",
+      "PowerShell(dotnet run *)",
+      "PowerShell(dotnet format *)",
+      "PowerShell(dotnet format)",
+      "PowerShell(dotnet restore *)",
+      "PowerShell(dotnet restore)",
+      "PowerShell(dotnet clean *)",
+      "PowerShell(dotnet clean)",
+      "PowerShell(dotnet list *)",
+      "PowerShell(dotnet publish *)",
+      "PowerShell(dotnet --info)",
+      "PowerShell(dotnet --list-sdks)",
+      "PowerShell(dotnet --version)",
+      "PowerShell(git status *)",
+      "PowerShell(git status)",
+      "PowerShell(git log *)",
+      "PowerShell(git log)",
+      "PowerShell(git diff *)",
+      "PowerShell(git diff)",
+      "PowerShell(git show *)",
+      "PowerShell(git branch)",
+      "PowerShell(git remote -v)"
+    ],
+    "deny": [
+      "Bash(rm * demo/arc.db*)",
+      "PowerShell(Remove-Item * demo/arc.db*)"
+    ]
+  }
+}
