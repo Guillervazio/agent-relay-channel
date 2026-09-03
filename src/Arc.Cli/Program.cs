@@ -3,18 +3,15 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Arc.Cli;
 using Arc.Core;
-
-// Códigos de salida: 0 éxito · 1 error · 2 uso incorrecto · 3 espera expirada · 4 sin mensajes.
-// Los tres últimos permiten a un agente ramificar sin analizar el texto de salida.
-const int ExitOk = 0, ExitError = 1, ExitUsage = 2, ExitTimeout = 3, ExitEmpty = 4;
 
 Console.OutputEncoding = new UTF8Encoding(false);
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 {
     Console.WriteLine(Help.Text);
-    return args.Length == 0 ? ExitUsage : ExitOk;
+    return args.Length == 0 ? ExitCodes.Usage : ExitCodes.Ok;
 }
 
 string command = args[0];
@@ -28,7 +25,7 @@ bool asJson = flags.Has("json");
 if (string.IsNullOrWhiteSpace(agent))
 {
     Console.Error.WriteLine("Falta la identidad del agente. Define ARC_AGENT o pasa --agent <nombre>.");
-    return ExitUsage;
+    return ExitCodes.Usage;
 }
 
 using HttpClient http = new HttpClient
@@ -60,16 +57,16 @@ try
         "thread" => await ThreadAsync(),
         "agents" => await GetAsync("/v1/agents"),
         "health" => await GetAsync("/healthz"),
-        _ => Fail($"Comando desconocido: '{command}'.\n\n{Help.Text}", ExitUsage)
+        _ => Fail($"Comando desconocido: '{command}'.\n\n{Help.Text}", ExitCodes.Usage)
     };
 }
 catch (HttpRequestException exception)
 {
-    return Fail($"No se pudo contactar con el hub en {url}: {exception.Message}", ExitError);
+    return Fail($"No se pudo contactar con el hub en {url}: {exception.Message}", ExitCodes.Error);
 }
 catch (TaskCanceledException)
 {
-    return Fail($"El hub en {url} no respondió a tiempo.", ExitError);
+    return Fail($"El hub en {url} no respondió a tiempo.", ExitCodes.Error);
 }
 
 // ---------- Comandos ----------
@@ -79,12 +76,12 @@ async Task<int> AskAsync()
     string? to = flags.Value("to");
     if (string.IsNullOrWhiteSpace(to))
     {
-        return Fail("Falta --to <agente>.", ExitUsage);
+        return Fail("Falta --to <agente>.", ExitCodes.Usage);
     }
 
     if (ReadBody() is not { } body)
     {
-        return ExitUsage;
+        return ExitCodes.Usage;
     }
 
     int wait = flags.Number("wait") ?? 120;
@@ -119,7 +116,7 @@ async Task<int> AskAsync()
     AskResult? result = Deserialize<AskResult>(text);
     if (result is null)
     {
-        return Fail("Respuesta del hub ilegible.", ExitError);
+        return Fail("Respuesta del hub ilegible.", ExitCodes.Error);
     }
 
     if (result.Outcome == "answered" && result.Response is { } answer)
@@ -136,7 +133,7 @@ async Task<int> AskAsync()
             Console.WriteLine();
             Console.WriteLine(answer.Body);
         }
-        return ExitOk;
+        return ExitCodes.Ok;
     }
 
     if (!asJson)
@@ -144,14 +141,14 @@ async Task<int> AskAsync()
         Console.WriteLine($"Sin respuesta tras {wait}s. La petición sigue viva: {result.RequestId}");
         Console.WriteLine($"Retómala con:  arc await {result.RequestId} --wait 300");
     }
-    return ExitTimeout;
+    return ExitCodes.Timeout;
 }
 
 async Task<int> AwaitAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } requestId)
     {
-        return Fail("Uso: arc await <request_id> [--wait N]", ExitUsage);
+        return Fail("Uso: arc await <request_id> [--wait N]", ExitCodes.Usage);
     }
 
     int wait = flags.Number("wait") ?? 120;
@@ -177,7 +174,7 @@ async Task<int> AwaitAsync()
             Console.WriteLine();
             Console.WriteLine(answer.Body);
         }
-        return ExitOk;
+        return ExitCodes.Ok;
     }
 
     if (!asJson)
@@ -185,7 +182,7 @@ async Task<int> AwaitAsync()
         Console.WriteLine($"{requestId} sigue sin respuesta.");
     }
 
-    return ExitTimeout;
+    return ExitCodes.Timeout;
 }
 
 async Task<int> InboxAsync()
@@ -207,19 +204,19 @@ async Task<int> InboxAsync()
             Console.WriteLine($"Sin mensajes para {agent}.");
         }
 
-        return ExitEmpty;
+        return ExitCodes.Empty;
     }
     if (!response.IsSuccessStatusCode)
     {
         return FailHttp(response, text);
     }
 
-    if (asJson) { Console.WriteLine(text); return ExitOk; }
+    if (asJson) { Console.WriteLine(text); return ExitCodes.Ok; }
 
     InboxResult? inbox = Deserialize<InboxResult>(text);
     if (inbox is null || inbox.Messages.Count == 0)
     {
-        return ExitEmpty;
+        return ExitCodes.Empty;
     }
 
     Console.WriteLine($"{inbox.Messages.Count} mensaje(s) para {agent}");
@@ -250,19 +247,19 @@ async Task<int> InboxAsync()
             Console.WriteLine($"    responder:  arc respond {message.Id} --body-file <fichero>");
         }
     }
-    return ExitOk;
+    return ExitCodes.Ok;
 }
 
 async Task<int> RespondAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } requestId)
     {
-        return Fail("Uso: arc respond <request_id> --body-file <fichero>", ExitUsage);
+        return Fail("Uso: arc respond <request_id> --body-file <fichero>", ExitCodes.Usage);
     }
 
     if (ReadBody() is not { } body)
     {
-        return ExitUsage;
+        return ExitCodes.Usage;
     }
 
     JsonObject payload = new JsonObject { ["body"] = body };
@@ -287,7 +284,7 @@ async Task<int> RespondAsync()
         Console.WriteLine($"Respuesta entregada a la petición {requestId}.");
     }
 
-    return ExitOk;
+    return ExitCodes.Ok;
 }
 
 async Task<int> NoteAsync()
@@ -295,12 +292,12 @@ async Task<int> NoteAsync()
     string? to = flags.Value("to");
     if (string.IsNullOrWhiteSpace(to))
     {
-        return Fail("Falta --to <agente>.", ExitUsage);
+        return Fail("Falta --to <agente>.", ExitCodes.Usage);
     }
 
     if (ReadBody() is not { } body)
     {
-        return ExitUsage;
+        return ExitCodes.Usage;
     }
 
     JsonObject payload = new JsonObject { ["to"] = to, ["body"] = body };
@@ -335,14 +332,14 @@ async Task<int> NoteAsync()
         Console.WriteLine($"Aviso enviado a {to}.");
     }
 
-    return ExitOk;
+    return ExitCodes.Ok;
 }
 
 async Task<int> ThreadAsync()
 {
     if (flags.Positional.FirstOrDefault() is not { Length: > 0 } threadId)
     {
-        return Fail("Uso: arc thread <thread_id>", ExitUsage);
+        return Fail("Uso: arc thread <thread_id>", ExitCodes.Usage);
     }
 
     HttpResponseMessage response = await http.GetAsync($"/v1/threads/{threadId}");
@@ -352,7 +349,7 @@ async Task<int> ThreadAsync()
         return FailHttp(response, text);
     }
 
-    if (asJson) { Console.WriteLine(text); return ExitOk; }
+    if (asJson) { Console.WriteLine(text); return ExitCodes.Ok; }
 
     List<Message> messages = Deserialize<List<Message>>(text) ?? [];
     Console.WriteLine($"hilo {threadId} · {messages.Count} mensaje(s)");
@@ -365,7 +362,7 @@ async Task<int> ThreadAsync()
             Console.WriteLine("    " + line);
         }
     }
-    return ExitOk;
+    return ExitCodes.Ok;
 }
 
 async Task<int> GetAsync(string path)
@@ -378,7 +375,7 @@ async Task<int> GetAsync(string path)
     }
 
     Console.WriteLine(text);
-    return ExitOk;
+    return ExitCodes.Ok;
 }
 
 // ---------- Auxiliares ----------
