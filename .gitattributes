@@ -1,0 +1,9 @@
+# Line endings are a correctness concern here, not a preference.
+#
+# .editorconfig declares end_of_line = crlf, so without this file git's
+# normalisation and `dotnet format` disagree and the first gated turn reports
+# every file as modified.
+* text=auto eol=crlf
+
+# scripts/ is run by bash. CRLF breaks a shebang and every heredoc in it.
+*.sh text eol=lf

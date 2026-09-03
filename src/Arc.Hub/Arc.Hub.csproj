@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+    <ProjectReference Include="..\Arc.Core\Arc.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- El panel viaja dentro del ensamblado: una copia suelta se perdería al publicar en un solo fichero. -->
+    <EmbeddedResource Include="ui\index.html" LogicalName="Arc.Hub.ui.index.html" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Arc.Cli/Arc.Cli.csproj" />
+    <Project Path="src/Arc.Core/Arc.Core.csproj" />
+    <Project Path="src/Arc.Hub/Arc.Hub.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Arc.Tests/Arc.Tests.csproj" />
+  </Folder>
+</Solution>

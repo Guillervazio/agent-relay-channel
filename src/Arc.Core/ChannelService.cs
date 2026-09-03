@@ -1,0 +1,215 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
+namespace Arc.Core;
+
+/// <summary>Fallo con significado para el llamante: se traduce a HTTP o a texto de herramienta MCP.</summary>
+public sealed class ChannelException(string code, string detail, int status) : Exception(detail)
+{
+    public string Code { get; } = code;
+    public int Status { get; } = status;
+}
+
+/// <summary>
+/// Las reglas del canal, en un solo sitio. REST y MCP son dos fachadas sobre
+/// esto: si la lógica viviera en los endpoints, ambas acabarían divergiendo.
+/// </summary>
+public sealed class ChannelService(MessageStore store, WaiterRegistry registry, int maxWaitSeconds = 300, EventStream? events = null)
+{
+    /// <summary>Nombres de agente acotados: son claves del registro de esperas.</summary>
+    public static readonly Regex AgentNamePattern = new("^[a-z0-9][a-z0-9._-]{0,63}$", RegexOptions.Compiled);
+
+    public int MaxWaitSeconds { get; } = maxWaitSeconds;
+
+    public MessageStore Store => store;
+    public WaiterRegistry Registry => registry;
+
+    /// <summary>Difusión hacia observadores pasivos. Nunca altera el curso de una operación.</summary>
+    public EventStream? Events => events;
+
+    public async Task<AskResult> AskAsync(
+        string from, string? to, string? body, string? subject, JsonElement? refs,
+        string? threadId, int? wait, CancellationToken ct = default)
+    {
+        ValidateAgent(to, "bad_recipient");
+        if (to == from)
+            throw new ChannelException("self_addressed", "Un agente no puede enviarse peticiones a sí mismo.", 400);
+        ValidateBody(body);
+
+        var requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
+        var thread = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16];
+
+        // Registrar la espera ANTES de insertar: si el destinatario contesta de
+        // inmediato, la señal encuentra al waiter ya montado y no se pierde.
+        using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
+
+        var message = new Message
+        {
+            Id = requestId,
+            ThreadId = thread,
+            From = from,
+            To = to!,
+            Kind = MessageKind.Request,
+            Subject = Blank(subject),
+            Body = body!,
+            Refs = refs,
+            Status = MessageStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await store.AddAsync(message, ct);
+        await store.TouchAgentAsync(from, null, null, sentMessage: true, ct: ct);
+        registry.Signal(WaiterRegistry.InboxKey(to!), message);
+        events?.PublishMessage(message);
+
+        var seconds = Clamp(wait);
+        if (seconds == 0)
+            return new AskResult { Outcome = "queued", RequestId = requestId, ThreadId = thread };
+
+        var response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
+                       ?? await store.GetResponseForAsync(requestId, ct);
+
+        return response is null
+            // La petición sigue viva: el destinatario puede contestarla más tarde.
+            ? new AskResult { Outcome = "timeout", RequestId = requestId, ThreadId = thread }
+            : new AskResult { Outcome = "answered", RequestId = requestId, ThreadId = thread, Response = response };
+    }
+
+    public async Task<AskResult> AwaitResponseAsync(string caller, string requestId, int? wait, CancellationToken ct = default)
+    {
+        var request = await store.GetAsync(requestId, ct);
+        if (request is null || request.Kind != MessageKind.Request)
+            throw new ChannelException("not_found", "No existe esa petición.", 404);
+        if (request.From != caller)
+            throw new ChannelException("forbidden", "Sólo el emisor puede esperar esta respuesta.", 403);
+
+        using var waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
+
+        var response = await store.GetResponseForAsync(requestId, ct);
+        if (response is null && Clamp(wait) is var seconds and > 0)
+        {
+            response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
+                       ?? await store.GetResponseForAsync(requestId, ct);
+        }
+
+        return response is null
+            ? new AskResult { Outcome = "timeout", RequestId = requestId, ThreadId = request.ThreadId }
+            : new AskResult { Outcome = "answered", RequestId = requestId, ThreadId = request.ThreadId, Response = response };
+    }
+
+    public async Task<Message> RespondAsync(
+        string from, string requestId, string? body, JsonElement? refs, CancellationToken ct = default)
+    {
+        ValidateBody(body);
+
+        var request = await store.GetAsync(requestId, ct);
+        if (request is null || request.Kind != MessageKind.Request)
+            throw new ChannelException("not_found", "No existe esa petición.", 404);
+        if (request.To != from)
+            throw new ChannelException("forbidden", $"Esta petición va dirigida a '{request.To}'.", 403);
+        if (request.Status == MessageStatus.Answered)
+            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+
+        var response = new Message
+        {
+            Id = "res_" + Guid.NewGuid().ToString("n")[..16],
+            ThreadId = request.ThreadId,
+            From = from,
+            To = request.From,
+            Kind = MessageKind.Response,
+            Subject = request.Subject,
+            Body = body!,
+            Refs = refs,
+            Status = MessageStatus.Pending,
+            CorrelationId = requestId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await store.AddResponseAsync(response, ct);
+        await store.TouchAgentAsync(from, null, null, sentMessage: true, ct: ct);
+
+        registry.Signal(WaiterRegistry.ResponseKey(requestId), response);
+        // Si el emisor ya dejó de esperar, la recogerá por su buzón.
+        registry.Signal(WaiterRegistry.InboxKey(request.From), response);
+        events?.PublishMessage(response);
+
+        return response;
+    }
+
+    public async Task<Message> NoteAsync(
+        string from, string? to, string? body, string? subject, JsonElement? refs,
+        string? threadId, CancellationToken ct = default)
+    {
+        ValidateAgent(to, "bad_recipient");
+        ValidateBody(body);
+
+        var note = new Message
+        {
+            Id = "not_" + Guid.NewGuid().ToString("n")[..16],
+            ThreadId = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16],
+            From = from,
+            To = to!,
+            Kind = MessageKind.Note,
+            Subject = Blank(subject),
+            Body = body!,
+            Refs = refs,
+            Status = MessageStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await store.AddAsync(note, ct);
+        await store.TouchAgentAsync(from, null, null, sentMessage: true, ct: ct);
+        registry.Signal(WaiterRegistry.InboxKey(to!), note);
+        events?.PublishMessage(note);
+
+        return note;
+    }
+
+    /// <summary>Buzón propio. Marca como entregado lo que devuelve.</summary>
+    public async Task<IReadOnlyList<Message>> InboxAsync(
+        string caller, string agent, bool includeUnanswered, int? wait, CancellationToken ct = default)
+    {
+        if (agent != caller)
+            throw new ChannelException("forbidden", "Un agente sólo puede leer su propio buzón.", 403);
+
+        // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
+        using var waiter = registry.Register(WaiterRegistry.InboxKey(agent));
+
+        var messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+        if (messages.Count == 0 && Clamp(wait) is var seconds and > 0)
+        {
+            if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
+                messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+        }
+
+        if (messages.Count > 0)
+        {
+            var justDelivered = messages.Where(m => m.Status == MessageStatus.Pending).Select(m => m.Id).ToList();
+            await store.MarkDeliveredAsync(justDelivered, ct);
+            events?.PublishDelivered(justDelivered);
+        }
+
+        return messages;
+    }
+
+    public int Clamp(int? requested) => Math.Clamp(requested ?? 0, 0, MaxWaitSeconds);
+
+    public static void ValidateAgent(string? name, string code)
+    {
+        if (string.IsNullOrWhiteSpace(name) || !AgentNamePattern.IsMatch(name))
+            throw new ChannelException(code,
+                "Nombre de agente ausente o inválido. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64).", 400);
+    }
+
+    private static void ValidateBody(string? body)
+    {
+        if (string.IsNullOrEmpty(body))
+            throw new ChannelException("empty_body", "El cuerpo del mensaje es obligatorio.", 400);
+        if (Encoding.UTF8.GetByteCount(body) > MessageStore.MaxBodyBytes)
+            throw new ChannelException("body_too_large",
+                $"Máximo {MessageStore.MaxBodyBytes / 1024} KB. Pasa una referencia al repositorio en 'refs' en vez del contenido.", 400);
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+}
