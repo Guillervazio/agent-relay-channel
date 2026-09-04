@@ -20,6 +20,37 @@ public class WaiterRegistryTests
         CreatedAt = DateTimeOffset.UtcNow
     };
 
+    /// <summary>
+    /// La carrera que dejaba huérfano a un waiter: <c>Unregister</c> desalojaba el
+    /// diccionario de una clave al quedarse vacío, y un <c>Register</c> que ya tenía ese
+    /// diccionario en la mano insertaba su puesto donde <c>Signal</c> no volvería a mirar.
+    /// El síntoma no era un error, era una espera que agotaba su plazo entero.
+    /// </summary>
+    [Fact]
+    public async Task Un_registro_simultaneo_a_la_salida_del_ultimo_sigue_recibiendo_la_senal()
+    {
+        const string key = "inbox:codex-pc2";
+        WaiterRegistry registry = new WaiterRegistry();
+
+        for (int i = 0; i < 500; i++)
+        {
+            Waiter leaving = registry.Register(key);
+
+            // Salir y entrar a la vez es lo que abre la ventana: el que se va vacía la
+            // clave, el que llega la encuentra a medio desalojar.
+            Waiter? arriving = null;
+            await Task.WhenAll(
+                Task.Run(leaving.Dispose),
+                Task.Run(() => arriving = registry.Register(key)));
+
+            using Waiter waiter = arriving!;
+            Task<Message?> waiting = waiter.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Equal(1, registry.Signal(key, AnyMessage()));
+            Assert.NotNull(await waiting);
+        }
+    }
+
     [Fact]
     public async Task Una_senal_despierta_al_que_espera()
     {
