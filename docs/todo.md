@@ -16,7 +16,7 @@ Increment 03 — pay what the backlog says is due. Increments 01 and 02 are clos
 | 2 | `WaiterRegistry` stops losing a registration to an eviction, with the test that catches it | done | this commit |
 | 3 | `ARC_MAX_WAIT` is refused at startup when it would brick the channel | done | this commit |
 | 4 | A malformed `--refs` exits `2` instead of sending the message without it | done | this commit |
-| 5 | The denylist names the uninstaller it was always meant to name | not started |  |
+| 5 | The denylist names the uninstaller it was always meant to name | done | this commit |
 
 Every phase is closed in the same commit that updates its row, and each one leaves
 [backlog.md](backlog.md) as it is fixed.

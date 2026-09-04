@@ -102,13 +102,6 @@ rediscovered as a bug.
   <br>**Due when:** the repository is created on github.com and its URL is known. Then
   `git remote add origin <url>` and `git push -u origin master`.
 
-- **The denylist in `.claude/settings.json`.** It reads
-  `Bash(rm * demo/arc.db*)`, which is a pattern nobody has seen match anything. The intended
-  entry is the service uninstaller — `*install-hub.ps1*-Uninstall*` — the way Plastipack denies
-  `dotnet ef database drop`.
-  <br>**Due when:** now, by hand. A denylist that does not match is worse than none: it reads as
-  protection that is not there.
-
 - **The demo token.** `demo/token.txt` and the two real `.mcp.json` are gitignored and were never
   committed, so this is about rotation and not about history.
   <br>**Due when:** the demo runs against a hub reachable off loopback.

@@ -66,8 +66,10 @@
       "PowerShell(git remote -v)"
     ],
     "deny": [
-      "Bash(rm * demo/arc.db*)",
-      "PowerShell(Remove-Item * demo/arc.db*)"
+      "Bash(rm *arc.db*)",
+      "Bash(*install-hub.ps1*-Uninstall*)",
+      "PowerShell(Remove-Item *arc.db*)",
+      "PowerShell(*install-hub.ps1*-Uninstall*)"
     ]
   }
 }
