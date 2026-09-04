@@ -110,14 +110,25 @@ request it was waiting on is still alive in the mailbox. Every long-lived handle
 `HttpContext.RequestAborted`; the mechanics are in
 [concurrency.project.md](concurrency.project.md).
 
-## The MCP surface adds nothing REST lacks
+## The MCP surface adds no operation REST lacks
 
 Seven tools over the same `ChannelService`. A tool never reaches past it, never adds an operation
 the REST surface does not have, and never surfaces a raw exception — a model reads the text.
 
-A tool's `Description` is written for a model, not a person: it says when to call the tool, not
-what the tool is. Every tool's output names the next action, because a model that has just been
-told "no hay mensajes" needs to know whether to wait again.
+It does carry one thing REST has no equivalent for, and it is not an operation: the `initialize`
+handshake returns `ServerInstructions`, which is how the channel explains itself to the model at
+the other end ([P014](../../docs/adr/P014-the-channel-explains-itself-in-the-handshake.md)).
+
+Three kinds of prose, and each says only its own thing:
+
+* A tool's **`Description`** says *when to call that tool*, not what the tool is.
+* A tool's **output** names the next action, because a model that has just been told
+  "no hay mensajes" needs to know whether to wait again.
+* **`ServerInstructions`** says how the channel is used at all — and nothing a single tool
+  already says about itself, which is what the SDK's own guidance asks for.
+
+All three are written for a model, not for a person. None of them is a place for a rule the
+channel enforces: that is `ChannelService`, reached by all three surfaces.
 
 ## What the base asks for that has no subject here
 

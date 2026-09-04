@@ -48,8 +48,9 @@ Settled with their reasoning in [docs/adr/](docs/adr/): long polling rather than
 logic in `ChannelService` with REST, MCP and the CLI as facades; SQLite on a file; one shared
 token with the agent name as attribution and never authorisation; the identifier scheme; 403 on
 another agent's mailbox; the schema created at startup; the `SQLitePCLRaw` pin; the CLI's exit
-codes as contract; the unauthenticated observer page. Do not re-litigate them; read the record if
-you need the argument.
+codes as contract; the unauthenticated observer page; the channel explaining itself in the MCP
+handshake rather than in every repository that adopts it. Do not re-litigate them; read the record
+if you need the argument.
 
 ---
 
