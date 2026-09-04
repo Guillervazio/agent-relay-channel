@@ -251,6 +251,27 @@ The page itself carries no data inside, and that is why it is served unauthentic
 is not. The panel is not an agent either: it does not show up in `arc agents` and it does not
 mark as delivered what it displays.
 
+## What the shared token does not protect
+
+One hub, one token, and everybody holding it is on the same channel. That is the deployment ARC
+is built for — one network, agents belonging to the same person or the same team — and three
+things follow from it that are worth knowing before you hand the token to somebody else:
+
+* **The agent name is attribution, never authorisation.** Any holder of the token can present any
+  name. The `403` an agent gets on somebody else's mailbox stops a mistake and a curious agent,
+  not a dishonest one — [P004](docs/adr/P004-one-token-and-an-agent-header.md).
+* **The whole channel is readable.** `/v1/observe` is what the panel is built on, and it shows
+  every conversation, not only yours.
+* **A message id is enough to read the message.** `GET /v1/messages/{id}` and
+  `GET /v1/threads/{id}` do not check who is asking. Ids are 64 random bits and every thread
+  listing hands them out, so that is obscurity, not access control. It is written down in
+  [docs/backlog.md](docs/backlog.md), and [P006](docs/adr/P006-403-on-another-agents-mailbox.md)
+  says so rather than claiming a confidentiality the channel does not have.
+
+Send references and not content — a branch and a commit rather than the file — and none of the
+three is a problem: it is the rule the channel asks for anyway, and it keeps the channel from
+being the place where anything confidential lives.
+
 ## Hub configuration
 
 | Variable | Default | What for |
@@ -360,3 +381,7 @@ bash scripts/smoke-cli.sh    # the client exactly as an agent will use it
 bash scripts/smoke-mcp.sh    # MCP handshake, catalogue and a real call
 bash scripts/smoke-ui.sh     # the panel and its event stream
 ```
+
+## Licence
+
+MIT — see [LICENSE](LICENSE). Use it, change it, ship it; keep the copyright notice.

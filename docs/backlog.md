@@ -104,9 +104,6 @@ rediscovered as a bug.
   committed, so this is about rotation and not about history.
   <br>**Due when:** the demo runs against a hub reachable off loopback.
 
-- **`LICENSE`.** There is none.
-  <br>**Due when:** the repository stops being private, or somebody outside asks to use it.
-
 - **The `SQLitePCLRaw` pin** — [P008](adr/P008-the-sqlitepclraw-pin.md). Read
   `Microsoft.Data.Sqlite`'s nuspec, **not** `dotnet list package --vulnerable`, which is clean
   because of the pin.

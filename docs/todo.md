@@ -17,7 +17,7 @@ at once, because the trigger they all named is the same: a second machine.
 |---|---|---|---|
 | 1 | `install-hub.ps1`: the two failures found while writing `start-hub.ps1` | done | this commit |
 | 2 | The smokes say which interpreter they could not find, and find the one that exists | done | this commit |
-| 3 | `LICENSE`, and a README that says what the shared token does not protect | pending | |
+| 3 | `LICENSE`, and a README that says what the shared token does not protect | done | this commit |
 | 4 | `Dockerfile`: hosting the hub without Windows | pending | |
 | 5 | `.github/workflows/`: the gate on a machine that is not this one | pending | |
 
@@ -56,7 +56,7 @@ moving the narrative to [specs/](specs/) and leaving this file as it was.
 
 ## Last verified
 
-4 September 2026, at the close of phase 2:
+4 September 2026, at the close of phase 3:
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
 * `dotnet test` — **99 passed, 0 failed, 0 skipped**, 1 project
