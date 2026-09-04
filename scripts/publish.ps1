@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Publica el hub y el cliente listos para copiar a cualquiera de las dos PCs.
 

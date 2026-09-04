@@ -215,7 +215,68 @@ public sealed class HubEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // ---------- El handshake de MCP ----------
+
+    [Fact]
+    public async Task El_handshake_de_MCP_lleva_las_instrucciones_del_canal()
+    {
+        HttpClient client = Client(A);
+        client.DefaultRequestHeaders.Add("Accept", "application/json, text/event-stream");
+
+        HttpResponseMessage response = await client.PostAsync("/mcp", Json(
+            """
+            {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+              "protocolVersion":"2025-06-18",
+              "capabilities":{},
+              "clientInfo":{"name":"arc-tests","version":"1.0"}}}
+            """));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Streamable HTTP puede contestar como JSON o como un evento SSE: lo que se
+        // afirma es el contenido, no el envoltorio en que llegó.
+        string raw = await response.Content.ReadAsStringAsync();
+        string instructions = InstructionsIn(raw);
+
+        Assert.Contains("arc_inbox", instructions, StringComparison.Ordinal);
+        Assert.Contains("referencias", instructions, StringComparison.Ordinal);
+        Assert.Contains("los dos a la vez", instructions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Las_instrucciones_no_nombran_ningun_proyecto_ni_agente_concreto()
+    {
+        HttpClient client = Client(A);
+        client.DefaultRequestHeaders.Add("Accept", "application/json, text/event-stream");
+
+        HttpResponseMessage response = await client.PostAsync("/mcp", Json(
+            """
+            {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+              "protocolVersion":"2025-06-18",
+              "capabilities":{},
+              "clientInfo":{"name":"arc-tests","version":"1.0"}}}
+            """));
+
+        // Son las instrucciones de un canal, no las de un montaje: un nombre de agente
+        // concreto aquí volvería a atarlas a un proyecto, que es justo lo que evitan.
+        string instructions = InstructionsIn(await response.Content.ReadAsStringAsync());
+
+        Assert.DoesNotContain("claude-pc1", instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("codex-pc2", instructions, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ---------- Utilidades ----------
+
+    /// <summary>Saca las instrucciones del resultado de initialize, venga como JSON o como SSE.</summary>
+    private static string InstructionsIn(string raw)
+    {
+        string payload = raw.Contains("data: ", StringComparison.Ordinal)
+            ? raw.Split("data: ")[1].Trim()
+            : raw.Trim();
+
+        using JsonDocument document = JsonDocument.Parse(payload);
+        return document.RootElement.GetProperty("result").GetProperty("instructions").GetString()!;
+    }
 
     private static async Task<string> ErrorCodeOf(HttpResponseMessage response)
     {

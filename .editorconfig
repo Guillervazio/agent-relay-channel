@@ -188,3 +188,11 @@ dotnet_naming_rule.parameters_and_locals_are_camel_case.severity = error
 [*.sh]
 end_of_line = lf
 indent_size = 2
+
+##
+## Windows PowerShell reads a .ps1 with no BOM as ANSI rather than as UTF-8, and every
+## accented word the script prints comes out corrupted. The BOM is the only thing that
+## marks it, so the repository-wide utf-8 above is not enough here.
+##
+[*.ps1]
+charset = utf-8-bom

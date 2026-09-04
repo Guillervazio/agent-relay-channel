@@ -26,6 +26,9 @@ wrong is the one who trusted the document.
   in use.
 * Changing a value of `MessageKind`, `MessageStatus`, or an `outcome`.
 * Changing what a CLI exit code means.
+* Ceasing to send `instructions` in the MCP `initialize` result, or sending it empty.
+  `PROTOCOL.md` guarantees the field arrives and is not empty, and that guarantee is the whole
+  of what a client may rely on.
 
 A breaking change is a new `/v1` → `/v2` path prefix with new handlers. The old ones freeze.
 
@@ -39,6 +42,8 @@ A breaking change is a new `/v1` → `/v2` path prefix with new handlers. The ol
   repository.
 * Adding an endpoint, an MCP tool, or a CLI subcommand.
 * Adding a **new** error code. Changing the meaning of an existing one is breaking.
+* Rewriting the text of `instructions`. It is prose a model reads, not a field a client parses,
+  and no client may key on its wording.
 
 ## Identifiers
 
@@ -77,3 +82,10 @@ REST, MCP and the CLI describe the same operations. Where they differ it is in i
 returns JSON, MCP returns prose a model reads, the CLI returns prose a person reads plus an exit
 code. A difference in *behaviour* between two surfaces is a bug in whichever one departed from
 `ChannelService` — see [architecture.project.md](architecture.project.md).
+
+One thing is genuinely MCP's alone: the `initialize` handshake, and the `instructions` it carries
+([P014](../../docs/adr/P014-the-channel-explains-itself-in-the-handshake.md)). REST has no
+handshake and the CLI has no session, so **nothing an agent must obey may live only there**. That
+text tells a model how to use the channel well; a rule the channel enforces belongs in
+`ChannelService`, where all three surfaces meet it, and the fact that two surfaces never see the
+handshake is why `docs/AGENTS.md` still exists.

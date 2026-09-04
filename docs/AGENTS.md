@@ -1,7 +1,19 @@
 # Instructions for the agents
 
-Paste this section into the `CLAUDE.md` (Claude Code) and the `AGENTS.md` (Codex) of the
-repository they work in. Adjust the agent names to your own.
+**Read this only if the handshake does not reach you.** The hub already says all of it
+itself: an MCP client receives it in the `instructions` field of `initialize`, so a
+repository that uses ARC has nothing to write down and no copy of its own to keep true.
+[PROTOCOL.md](PROTOCOL.md) describes the field.
+
+Two cases it does not reach. An agent driving `arc` from the command line, which has no
+handshake at all; and a client that receives `instructions` and does not put them in front
+of its model, which is the client's decision and not something this project can promise
+either way. For those, paste the section below into the `CLAUDE.md` (Claude Code) or the
+`AGENTS.md` (Codex) of the repository they work in, and adjust the agent names.
+
+It is deliberately the same advice as the handshake's, spelled out for the command line.
+One second copy, here, is the price of covering a client that ignores the first; a copy per
+repository adopting the channel is what the handshake exists to avoid.
 
 ---
 

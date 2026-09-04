@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Deja el hub funcionando en esta máquina: regla de firewall y servicio de Windows.
 

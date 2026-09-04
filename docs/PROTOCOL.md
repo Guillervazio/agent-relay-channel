@@ -174,6 +174,19 @@ model can read it:
 | `arc_thread` | Retrieves a complete conversation. |
 | `arc_agents` | Lists who is on the channel. |
 
+### The handshake carries the channel's instructions
+
+`initialize` answers with an `instructions` field: natural-language guidance for the model on how
+to use the channel — check the mailbox at the start of a turn, ask versus notify, send references
+rather than content, and never both wait at once. It names no project, no machine and no agent: the
+recipient is discovered with `arc_agents`.
+
+It is there so a consuming repository has nothing to write down. Pasting those rules into each
+project's own instructions means one copy per repository, and copies drift.
+
+Whether a client puts that text in front of its model is the client's decision, not this
+contract's. What the hub guarantees is that the field arrives, and is not empty.
+
 ## The CLI
 
 `arc` is the third surface. It carries the same operations over REST, and adds one thing the

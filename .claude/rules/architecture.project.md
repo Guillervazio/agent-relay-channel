@@ -103,7 +103,13 @@ constraint while the real store runs on a temporary file in one millisecond.
 | Waiting, waking, cancelling | `Arc.Core/WaiterRegistry.cs`, `Arc.Core/EventStream.cs` |
 | An HTTP endpoint | `Arc.Hub/HubApp.cs` |
 | An MCP tool | `Arc.Hub/ArcTools.cs` |
+| Prose the handshake sends a model | `Arc.Hub/ArcInstructions.cs` |
 | A CLI subcommand | `Arc.Cli/CliRunner.cs` |
+
+That last one is one constant and no behaviour, and it stays that way. It is not where a tool's
+own documentation goes — that is its `[Description]` — and it is not where a rule of the channel
+goes, because a rule that lands there is enforced on nobody: two of the three surfaces never see
+the handshake at all.
 
 The folder tree is not written down here. `Arc.slnx` and a directory listing describe it better
 and do not go stale.

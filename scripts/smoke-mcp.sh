@@ -46,6 +46,14 @@ MODO=$([ -n "$SESSION" ] && echo "con sesión" || echo "stateless")
 grep -q '"serverInfo"' "$WORK/init.out"
 check "el servidor se identifica en el handshake ($MODO)" $?
 
+# El canal se explica a sí mismo: sin esto, cada proyecto tendría que pegar las
+# mismas reglas en su propio CLAUDE.md y las copias se separarían.
+grep -q '"instructions"' "$WORK/init.out"
+check "el handshake trae las instrucciones del canal" $?
+
+grep -q 'arc_inbox' "$WORK/init.out"
+check "las instrucciones dicen que se mira el buzón al empezar" $?
+
 printf '%s' '{"jsonrpc":"2.0","method":"notifications/initialized"}' > "$WORK/ready.json"
 rpc "$A" "$WORK/ready.json" > /dev/null
 
