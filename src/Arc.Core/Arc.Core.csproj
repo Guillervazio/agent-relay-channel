@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <!-- Sólo para que un test pueda abrir una conexión por la misma puerta que el
+         store y comprobar los PRAGMA que lleva puestos. Ninguna superficie pública
+         los revela, y el defecto que motivó esto duró porque nadie podía verlo. -->
+    <InternalsVisibleTo Include="Arc.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- Versión y motivo del pin: Directory.Packages.props. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />

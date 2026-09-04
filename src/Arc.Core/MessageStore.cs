@@ -28,10 +28,21 @@ public sealed class MessageStore
         _connectionString = builder.ToString();
     }
 
-    private async Task<SqliteConnection> OpenAsync(CancellationToken ct)
+    internal async Task<SqliteConnection> OpenAsync(CancellationToken ct)
     {
         SqliteConnection connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(ct).ConfigureAwait(false);
+
+        // `synchronous` es por conexión y no se guarda en el fichero, a diferencia de
+        // `journal_mode`. Emitirlo sólo al crear el esquema dejaba a todas las demás
+        // conexiones del pool en el FULL por defecto: la compensación que las reglas
+        // llaman decisión variaba entre operaciones.
+        await using (SqliteCommand pragma = connection.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA synchronous = NORMAL;";
+            await pragma.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
         return connection;
     }
 
@@ -41,7 +52,6 @@ public sealed class MessageStore
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode = WAL;
-            PRAGMA synchronous = NORMAL;
 
             CREATE TABLE IF NOT EXISTS messages (
                 id             TEXT PRIMARY KEY,
