@@ -19,7 +19,8 @@ Increment 02 — make the code obey what the rules say. Increment 01 is closed i
 | 3 | H013: seven codes to 422, `invalid_json` keeps 400, `PROTOCOL.md` and the smokes in the same commit | done | `661d574` |
 | 4 | `ValidateWait` refuses instead of clamping, and refuses **before** creating anything | done | `661d574` |
 | 5 | `TimeProvider` injected into `ChannelService` and the hub's two timestamps | **not started** |  |
-| 6 | Tests for `ChannelService` | done | this commit |
+| 6 | Tests for `ChannelService` | done | `ae9757a` |
+| 7 | The rules and the published contract say what the code does | done | this commit |
 
 Every phase is closed in the same commit that updates its row.
 
@@ -34,6 +35,21 @@ the part of the suite most exposed to a slow machine.
 
 It needs one package approval, for `Microsoft.Extensions.TimeProvider.Testing`, and the appendix
 table updated in the same change.
+
+---
+
+## What phase 7 found and did not fix
+
+Phase 7 was the mirror of this increment's title: instead of making the code obey the rules, it
+made the rules and the two public documents describe the code. The prose was wrong in ten places,
+including a `README.md` sentence promising that `--wait 600` "is not an error, it waits 300" —
+false since phase 4, and carried into English intact by the translation.
+
+It also found nine defects in the code and **fixed none of them**, by scope. They are in
+[backlog.md](backlog.md) with a trigger each. Four are marked due now on merit: the `synchronous`
+pragma that is not in force, the `WaiterRegistry` race that can orphan a waiter, the CLI
+discarding a malformed `--refs` in silence, and `ARC_MAX_WAIT` accepting a value that bricks the
+hub.
 
 ---
 

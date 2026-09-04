@@ -43,8 +43,13 @@ A breaking change is a new `/v1` → `/v2` path prefix with new handlers. The ol
 ## Identifiers
 
 A three-character prefix that says what the thing is — `req_`, `res_`, `not_`, `thr_` — followed
-by an opaque, time-ordered suffix. The prefix is for a human reading a log; **nothing parses it**,
-and code that switches on it has made a display detail load-bearing.
+by an opaque suffix. The prefix is for a human reading a log; **nothing parses it**, and code that
+switches on it has made a display detail load-bearing.
+
+The suffix is **not ordered**: it is `Guid.NewGuid().ToString("n")[..16]`, 64 random bits. P005's
+decision line calls it time-ordered and its own *What this does not authorise* section explains
+why it is not, which is the contradiction to know about before quoting either half. Nothing here
+may assume an id sorts chronologically — the queries order by `created_at`, and that is why.
 
 See [P005](../../docs/adr/P005-message-identifiers.md), and read its
 *What this does not authorise* before changing how the suffix is generated: truncating a UUIDv7
@@ -61,7 +66,10 @@ literal** rather than referencing the constant — which is
 an exit code: a test asserting `ExitCodes.Timeout == ExitCodes.Timeout` passes through exactly the
 change it exists to catch.
 
-There are no such tests yet. `docs/backlog.md`.
+`ArcErrorsTests.Los_codigos_de_salida_del_cli_no_cambian` is that test, and it spells `0` to `4`.
+`Arc.Tests` therefore references `Arc.Cli`, and `ExitCodes` is `internal` with an
+`InternalsVisibleTo` — opened to the suite rather than made public, because nothing outside the
+CLI uses them.
 
 ## Three surfaces, one wire
 

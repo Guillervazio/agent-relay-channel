@@ -13,8 +13,14 @@ human reading a log; nothing parses it.
 
 ## Consequences
 
-A person seeing `req_a1b2…` in a transcript knows what kind of thing it is without a lookup, and
-the ordering keeps the primary index appending rather than scattering.
+A person seeing `req_a1b2…` in a transcript knows what kind of thing it is without a lookup.
+
+**The ordering half of this record was never implemented.** The suffix is
+`Guid.NewGuid().ToString("n")[..16]` — 64 random bits — so inserts scatter through the primary
+index rather than appending, and an id does not sort chronologically. The decision line above and
+this paragraph disagree on purpose: the section below is why applying H010 naively would be worse
+than leaving it, and until that is resolved the *Decision* states an intent, not the code.
+Nothing may assume an id is ordered; the queries order by `created_at`.
 
 ## What this does not authorise
 
