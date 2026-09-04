@@ -93,6 +93,23 @@ ARC_AGENT="$A" "$ARC" await "$late_id" --wait 30 > "$WORK/await.txt" 2>&1
 check "arc await recupera una respuesta tardía" $?
 wait
 
+echo "== 4. Unas refs que no se pueden leer no salen en silencio =="
+# El fallo era que el mensaje se enviaba igual, sin rama ni commit, con código 0:
+# el agente creía haberlos mandado.
+before=$(ARC_AGENT="$B" "$ARC" inbox --json 2>/dev/null | grep -c 'req_' || true)
+
+ARC_AGENT="$A" "$ARC" ask --to "$B" --body-file "$WORK/pregunta.md" --refs '{roto' --wait 0 > /dev/null 2>&1
+[ $? -eq 2 ]
+check "un --refs mal formado devuelve código 2" $?
+
+ARC_AGENT="$A" "$ARC" ask --to "$B" --body-file "$WORK/pregunta.md" --refs-file "$WORK/no-existe.json" --wait 0 > /dev/null 2>&1
+[ $? -eq 2 ]
+check "un --refs-file inexistente devuelve código 2" $?
+
+after=$(ARC_AGENT="$B" "$ARC" inbox --json 2>/dev/null | grep -c 'req_' || true)
+[ "$before" = "$after" ]
+check "ninguno de los dos llegó a enviarse" $?
+
 echo
 echo "$pass correctas, $fail fallidas"
 [ "$fail" -eq 0 ]

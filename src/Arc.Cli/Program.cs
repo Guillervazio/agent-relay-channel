@@ -97,7 +97,12 @@ async Task<int> AskAsync()
         payload["thread_id"] = thread;
     }
 
-    if (ReadRefs() is { } refs)
+    if (!TryReadRefs(out JsonNode? refs))
+    {
+        return ExitCodes.Usage;
+    }
+
+    if (refs is not null)
     {
         payload["refs"] = refs;
     }
@@ -270,7 +275,12 @@ async Task<int> RespondAsync()
     }
 
     JsonObject payload = new JsonObject { ["body"] = body };
-    if (ReadRefs() is { } refs)
+    if (!TryReadRefs(out JsonNode? refs))
+    {
+        return ExitCodes.Usage;
+    }
+
+    if (refs is not null)
     {
         payload["refs"] = refs;
     }
@@ -318,7 +328,12 @@ async Task<int> NoteAsync()
         payload["thread_id"] = thread;
     }
 
-    if (ReadRefs() is { } refs)
+    if (!TryReadRefs(out JsonNode? refs))
+    {
+        return ExitCodes.Usage;
+    }
+
+    if (refs is not null)
     {
         payload["refs"] = refs;
     }
@@ -425,25 +440,42 @@ string? ReadBody()
     return null;
 }
 
-JsonNode? ReadRefs()
+// Devuelve false si el llamante pidió refs y no se pudieron leer. Un único `null` para
+// "no me diste refs" y para "lo que me diste no vale" hacía que el mensaje saliera sin la
+// rama ni el commit, con código 0 y un agente convencido de haberlos enviado.
+bool TryReadRefs(out JsonNode? refs)
 {
-    string? raw = flags.Value("refs-file") is { } file && File.Exists(file)
-        ? File.ReadAllText(file, Encoding.UTF8)
-        : flags.Value("refs");
+    refs = null;
+    string? raw;
+
+    if (flags.Value("refs-file") is { } file)
+    {
+        if (!File.Exists(file))
+        {
+            Console.Error.WriteLine($"No existe el fichero: {file}");
+            return false;
+        }
+        raw = File.ReadAllText(file, Encoding.UTF8);
+    }
+    else
+    {
+        raw = flags.Value("refs");
+    }
 
     if (string.IsNullOrWhiteSpace(raw))
     {
-        return null;
+        return true;
     }
 
     try
     {
-        return JsonNode.Parse(raw);
+        refs = JsonNode.Parse(raw);
+        return true;
     }
     catch (JsonException exception)
     {
         Console.Error.WriteLine($"--refs no es JSON válido: {exception.Message}");
-        return null;
+        return false;
     }
 }
 
