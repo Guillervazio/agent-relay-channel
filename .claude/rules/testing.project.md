@@ -20,15 +20,15 @@ One row, one project referencing `Microsoft.NET.Test.Sdk`. Complete.
 Only two of the base's four exist. **Unit** is `WaiterRegistryTests`. **Persistence** is
 `MessageStoreTests`, against the engine ARC ships rather than a substitute.
 
-There is no **integration** suite and no **scenario** suite. What stands in for the scenario
-suite is `scripts/test-all.sh`, which starts a real hub on port 8791 with a temporary database
-and drives all four surfaces — REST, CLI, MCP and the observer page. It is not in the fast gate
-and it is not xunit, so **it is not covered by any row above**, and that is the honest position:
-the endpoints' 401 and 403 paths are exercised by a bash script that no gate runs.
+`ChannelServiceTests` is the **integration** row in spirit: the rules of the channel against the
+real store on a temporary file and the real waiter registry, with nothing substituted. It is
+almost entirely refusals, because an endpoint is covered when its failure paths are.
 
-`ChannelService` — where every rule of the channel lives — has **no tests at all**. Recorded here
-rather than in the backlog because a reader of this file needs to know it before trusting a green
-run.
+There is no **scenario** suite. What stands in for one is `scripts/test-all.sh`, which starts a
+real hub on port 8791 with a temporary database and drives all four surfaces — REST, CLI, MCP and
+the observer page. It is not in the fast gate and it is not xunit, so **it is not covered by the
+row above**, and that is the honest position: the 401 path is exercised only by a bash script that
+no gate runs.
 
 ## Deviations
 

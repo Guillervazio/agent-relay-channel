@@ -1,0 +1,234 @@
+using Arc.Core;
+
+namespace Arc.Tests;
+
+/// <summary>
+/// Las reglas del canal. Casi todo lo que hay aquí son negativas: un endpoint
+/// está cubierto cuando lo están sus caminos de fallo, y el camino feliz es el
+/// que se escribió mirándolo.
+/// </summary>
+/// <remarks>
+/// Sin sustitutos. El store es el real sobre un fichero temporal — el motor que
+/// ARC embarca — y el registro de esperas es el de producción. No hace falta una
+/// interfaz para nada de esto, que es H002 satisfecho por ausencia.
+/// </remarks>
+public sealed class ChannelServiceTests : IAsyncLifetime
+{
+    private const string A = "claude-pc1";
+    private const string B = "codex-pc2";
+
+    private readonly string _path = Path.Combine(Path.GetTempPath(), $"arc-channel-{Guid.NewGuid():n}.db");
+    private MessageStore _store = null!;
+    private ChannelService _channel = null!;
+
+    public async Task InitializeAsync()
+    {
+        _store = new MessageStore(_path);
+        await _store.InitializeAsync();
+        _channel = new ChannelService(_store, new WaiterRegistry(), maxWaitSeconds: 30);
+    }
+
+    public Task DisposeAsync()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        foreach (string file in new[] { _path, _path + "-wal", _path + "-shm" })
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task Un_agente_no_puede_preguntarse_a_si_mismo()
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 0));
+
+        Assert.Equal("self_addressed", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("MAYÚSCULAS")]
+    [InlineData("con espacio")]
+    public async Task Un_destinatario_mal_formado_se_rechaza(string destinatario)
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, destinatario, "x", null, null, null, 0));
+
+        Assert.Equal("bad_recipient", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    [Fact]
+    public async Task Una_peticion_sin_cuerpo_se_rechaza()
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, B, "", null, null, null, 0));
+
+        Assert.Equal("empty_body", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    [Fact]
+    public async Task Un_cuerpo_por_encima_del_limite_se_rechaza()
+    {
+        string enorme = new string('x', MessageStore.MaxBodyBytes + 1);
+
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, B, enorme, null, null, null, 0));
+
+        Assert.Equal("body_too_large", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    [Fact]
+    public async Task Una_espera_fuera_de_rango_se_rechaza_en_vez_de_recortarse()
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, B, "x", null, null, null, wait: 999));
+
+        Assert.Equal("invalid_wait", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    [Fact]
+    public async Task Una_espera_rechazada_no_deja_la_peticion_creada()
+    {
+        await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AskAsync(A, B, "x", null, null, null, wait: 999));
+
+        // La validación va antes de insertar: contestar 422 y dejar la pregunta
+        // en el canal sería lo peor de las dos opciones.
+        Assert.Empty(await _store.GetInboxAsync(B));
+    }
+
+    [Fact]
+    public async Task Preguntar_sin_esperar_deja_la_peticion_en_el_buzon()
+    {
+        AskResult result = await _channel.AskAsync(A, B, "¿céntimos o euros?", "Pagos", null, null, wait: 0);
+
+        Assert.Equal("queued", result.Outcome);
+        Message pendiente = Assert.Single(await _store.GetInboxAsync(B));
+        Assert.Equal(result.RequestId, pendiente.Id);
+        Assert.Equal("¿céntimos o euros?", pendiente.Body);
+    }
+
+    [Fact]
+    public async Task Solo_el_destinatario_responde()
+    {
+        AskResult pregunta = await _channel.AskAsync(A, B, "x", null, null, null, wait: 0);
+
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.RespondAsync(A, pregunta.RequestId!, "no me toca", null));
+
+        Assert.Equal("forbidden", error.Code);
+        Assert.Equal(403, error.Status);
+    }
+
+    [Fact]
+    public async Task Responder_dos_veces_da_conflicto()
+    {
+        AskResult pregunta = await _channel.AskAsync(A, B, "x", null, null, null, wait: 0);
+        await _channel.RespondAsync(B, pregunta.RequestId!, "céntimos", null);
+
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.RespondAsync(B, pregunta.RequestId!, "otra vez", null));
+
+        Assert.Equal("already_answered", error.Code);
+        Assert.Equal(409, error.Status);
+    }
+
+    [Fact]
+    public async Task Responder_a_algo_que_no_existe_es_un_404()
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.RespondAsync(B, "req_noexiste", "x", null));
+
+        Assert.Equal("not_found", error.Code);
+        Assert.Equal(404, error.Status);
+    }
+
+    [Fact]
+    public async Task Un_agente_solo_lee_su_propio_buzon()
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.InboxAsync(A, B, false, 0));
+
+        Assert.Equal("forbidden", error.Code);
+        Assert.Equal(403, error.Status);
+    }
+
+    [Fact]
+    public async Task Solo_el_emisor_espera_su_respuesta()
+    {
+        AskResult pregunta = await _channel.AskAsync(A, B, "x", null, null, null, wait: 0);
+
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AwaitResponseAsync(B, pregunta.RequestId!, 0));
+
+        Assert.Equal("forbidden", error.Code);
+        Assert.Equal(403, error.Status);
+    }
+
+    [Fact]
+    public async Task Una_respuesta_que_llego_antes_de_esperarla_no_se_pierde()
+    {
+        AskResult pregunta = await _channel.AskAsync(A, B, "x", null, null, null, wait: 0);
+        await _channel.RespondAsync(B, pregunta.RequestId!, "céntimos", null);
+
+        // Sin espera: la respuesta ya está en el almacén y AwaitResponseAsync la
+        // encuentra sin bloquear. Es el cinturón del long-poll.
+        AskResult recogida = await _channel.AwaitResponseAsync(A, pregunta.RequestId!, wait: 0);
+
+        Assert.Equal("answered", recogida.Outcome);
+        Assert.Equal("céntimos", recogida.Response!.Body);
+    }
+
+    [Fact]
+    public async Task Preguntar_y_responder_mientras_se_espera_despierta_al_emisor()
+    {
+        Task<AskResult> pregunta = _channel.AskAsync(A, B, "¿céntimos o euros?", null, null, null, wait: 20);
+
+        // El destinatario sondea su buzón hasta ver la pregunta y la contesta.
+        Message entrante = await LeerDelBuzonAsync(B);
+        await _channel.RespondAsync(B, entrante.Id, "céntimos", null);
+
+        AskResult result = await pregunta;
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("céntimos", result.Response!.Body);
+    }
+
+    [Fact]
+    public async Task Un_aviso_no_espera_respuesta_y_llega_al_buzon()
+    {
+        Message aviso = await _channel.NoteAsync(A, B, "he tocado el endpoint de pagos", null, null, null);
+
+        Assert.Equal(MessageKind.Note, aviso.Kind);
+        Message recibido = Assert.Single(await _store.GetInboxAsync(B));
+        Assert.Equal(aviso.Id, recibido.Id);
+    }
+
+    private async Task<Message> LeerDelBuzonAsync(string agente)
+    {
+        for (int intento = 0; intento < 100; intento++)
+        {
+            IReadOnlyList<Message> buzon = await _channel.InboxAsync(agente, agente, false, 0);
+            if (buzon.Count > 0)
+            {
+                return buzon[0];
+            }
+
+            await Task.Delay(20);
+        }
+
+        throw new InvalidOperationException($"No llegó nada al buzón de {agente}.");
+    }
+}
