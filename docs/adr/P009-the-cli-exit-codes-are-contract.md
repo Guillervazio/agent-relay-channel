@@ -2,7 +2,7 @@
 
 ## Context
 
-`docs/AGENTES.md` tells an agent to branch on `arc`'s exit code rather than parse its output: 3
+`docs/AGENTS.md` tells an agent to branch on `arc`'s exit code rather than parse its output: 3
 means the wait elapsed and the question is still live, 4 means there was nothing to collect. A
 number an agent branches on is an interface.
 

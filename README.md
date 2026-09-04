@@ -318,7 +318,7 @@ Code and Codex CLI, both on your network.
 | [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
 | [scripts](scripts) | Publishing, installation and smoke tests |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
-| [docs/AGENTES.md](docs/AGENTES.md) | Text to paste into each agent's `CLAUDE.md` / `AGENTS.md` |
+| [docs/AGENTS.md](docs/AGENTS.md) | Text to paste into each agent's own `CLAUDE.md` / `AGENTS.md` |
 
 ## Verification
 

@@ -50,7 +50,7 @@ public sealed class ArcErrorsTests
     [Fact]
     public void Los_codigos_de_salida_del_cli_no_cambian()
     {
-        // docs/AGENTES.md le dice a un agente que ramifique sobre estos números.
+        // docs/AGENTS.md le dice a un agente que ramifique sobre estos números.
         Assert.Equal(0, Arc.Cli.ExitCodes.Ok);
         Assert.Equal(1, Arc.Cli.ExitCodes.Error);
         Assert.Equal(2, Arc.Cli.ExitCodes.Usage);

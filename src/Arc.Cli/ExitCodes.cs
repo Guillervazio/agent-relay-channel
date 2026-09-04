@@ -2,7 +2,7 @@ namespace Arc.Cli;
 
 /// <summary>
 /// Los códigos de salida de <c>arc</c>. Son contrato publicado: docs/PROTOCOL.md
-/// los documenta y docs/AGENTES.md le dice a un agente que ramifique sobre ellos,
+/// los documenta y docs/AGENTS.md le dice a un agente que ramifique sobre ellos,
 /// de modo que un código nunca cambia de significado y un estado nuevo toma un
 /// número nuevo.
 /// </summary>
