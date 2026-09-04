@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <!-- Sólo para ArcTools.AgentKey: la clave con la que el middleware deja puesta la
+         identidad. El test la usa en vez de repetir el literal, que es la duplicación
+         que H012 existe para evitar. -->
+    <InternalsVisibleTo Include="Arc.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <ProjectReference Include="..\Arc.Core\Arc.Core.csproj" />
   </ItemGroup>

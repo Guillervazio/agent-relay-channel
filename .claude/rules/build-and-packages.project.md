@@ -36,8 +36,9 @@ with nothing to bind to is not being departed from:
 | `xunit.runner.visualstudio` | Arc.Tests | VSTest discovery for xunit v2 |
 | `coverlet.collector` | Arc.Tests | Coverage collection. **Nothing reads its output today** — see `docs/backlog.md` |
 | `Microsoft.Extensions.TimeProvider.Testing` | Arc.Tests | `FakeTimeProvider`, and only that. `TimeProvider` itself is in the BCL — verified by compiling against it with no reference — so **no production project takes this** |
+| `Microsoft.AspNetCore.TestHost` | Arc.Tests | The in-memory server `HubEndpointTests` runs the real pipeline against. Verified the same way: a `FrameworkReference` to `Microsoft.AspNetCore.App` alone does not reach `UseTestServer` |
 
-Eight rows against eight `PackageVersion` entries in `Directory.Packages.props`. Complete.
+Nine rows against nine `PackageVersion` entries in `Directory.Packages.props`. Complete.
 
 `Arc.Cli` has no packages at all: it is `System.Net.Http` and a project reference.
 
