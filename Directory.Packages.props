@@ -28,6 +28,12 @@
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+
+    <!-- FakeTimeProvider, and nothing else. TimeProvider itself is in the BCL:
+         verified by compiling against it with no package reference at all, which
+         is how the workflow says to answer "does the framework already cover
+         this". Production code takes no dependency on this. -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.9.0" />
   </ItemGroup>
 
 </Project>

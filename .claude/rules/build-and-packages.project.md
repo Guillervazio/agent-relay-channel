@@ -35,8 +35,9 @@ with nothing to bind to is not being departed from:
 | `xunit` | Arc.Tests | The test framework |
 | `xunit.runner.visualstudio` | Arc.Tests | VSTest discovery for xunit v2 |
 | `coverlet.collector` | Arc.Tests | Coverage collection. **Nothing reads its output today** — see `docs/backlog.md` |
+| `Microsoft.Extensions.TimeProvider.Testing` | Arc.Tests | `FakeTimeProvider`, and only that. `TimeProvider` itself is in the BCL — verified by compiling against it with no reference — so **no production project takes this** |
 
-Seven rows against seven `PackageVersion` entries in `Directory.Packages.props`. Complete.
+Eight rows against eight `PackageVersion` entries in `Directory.Packages.props`. Complete.
 
 `Arc.Cli` has no packages at all: it is `System.Net.Http` and a project reference.
 
