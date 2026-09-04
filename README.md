@@ -405,6 +405,9 @@ bash scripts/smoke-mcp.sh    # MCP handshake, catalogue and a real call
 bash scripts/smoke-ui.sh     # the panel and its event stream
 ```
 
+All of it also runs on `ubuntu-latest` for every push to `master` and every pull request —
+[.github/workflows/gate.yml](.github/workflows/gate.yml).
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE). Use it, change it, ship it; keep the copyright notice.

@@ -2,13 +2,19 @@
 # Prueba de humo del cliente: el mismo ciclo bloqueante, pero visto como lo
 # usará un agente — invocando `arc` y ramificando por el código de salida.
 #
-#   ARC_URL=http://127.0.0.1:8765 ./scripts/smoke-cli.sh [ruta/a/arc.exe]
+#   ARC_URL=http://127.0.0.1:8765 ./scripts/smoke-cli.sh [ruta/al/cliente]
 set -uo pipefail
 
 . "$(dirname "$0")/preflight.sh"
 require_python || exit 1
 
-ARC="${1:-$(dirname "$0")/../src/Arc.Cli/bin/Debug/net10.0/arc.exe}"
+# El binario no se llama igual en los dos sistemas: `arc.exe` en Windows, `arc` en
+# Linux. Este script no había corrido nunca fuera del primero.
+out="$(dirname "$0")/../src/Arc.Cli/bin/Debug/net10.0"
+ARC="${1:-}"
+if [ -z "$ARC" ]; then
+  if [ -x "$out/arc.exe" ]; then ARC="$out/arc.exe"; else ARC="$out/arc"; fi
+fi
 export ARC_URL="${ARC_URL:-http://127.0.0.1:8765}"
 A="${ARC_A:-claude-pc1}"
 B="${ARC_B:-codex-pc2}"

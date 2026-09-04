@@ -19,7 +19,7 @@ at once, because the trigger they all named is the same: a second machine.
 | 2 | The smokes say which interpreter they could not find, and find the one that exists | done | this commit |
 | 3 | `LICENSE`, and a README that says what the shared token does not protect | done | this commit |
 | 4 | `Dockerfile`: hosting the hub without Windows | done | this commit |
-| 5 | `.github/workflows/`: the gate on a machine that is not this one | pending | |
+| 5 | `.github/workflows/`: the gate on a machine that is not this one | done | this commit |
 
 Phases 1 and 2 come first because they are defects that hit the first adopter, not features.
 Phase 5 comes last because CI has nothing to prove until there is something to publish.
@@ -56,7 +56,7 @@ moving the narrative to [specs/](specs/) and leaving this file as it was.
 
 ## Last verified
 
-4 September 2026, at the close of phase 4:
+4 September 2026, at the close of phase 5:
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
 * `dotnet test` — **99 passed, 0 failed, 0 skipped**, 1 project
@@ -75,3 +75,7 @@ moving the narrative to [specs/](specs/) and leaving this file as it was.
 * the container, which is the first time the hub has run outside Windows: it refused to start
   with no `ARC_TOKEN` and said so, ran as `app` rather than root, kept the mailbox in the volume
   across `docker rm` and a rebuild, and answered **all four suites — 66 checks — green**
+* the whole gate rehearsed on Linux before trusting the workflow to it: the working tree copied
+  into `mcr.microsoft.com/dotnet/sdk:10.0` and `scripts/test-all.sh` run there — **four suites, 66
+  checks, green**, with the CLI found under its Linux name and the interpreter resolved as
+  `python3`, which is the only name that image has once Python is installed at all

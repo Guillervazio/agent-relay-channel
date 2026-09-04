@@ -59,11 +59,6 @@ rediscovered as a bug.
 
 ### Waiting on evidence, not on effort
 
-- **CI.** There is no `.github/workflows/`. With one contributor and a Stop hook that blocks a
-  turn on a red build, CI would re-run what already ran on the only machine that matters.
-  <br>**Due when:** a second person can push, or a release is cut from a machine that is not this
-  one.
-
 - **A coverage number.** `coverlet.collector` is installed and nothing reads its output. The
   testing base deliberately sets no percentage, so adding a threshold would contradict a rule this
   repository just adopted.

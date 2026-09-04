@@ -92,6 +92,9 @@ demand.
 
 **A green turn is not evidence the gate ran.** It arrives as a plugin, and every way it can stop
 running is silent — see
-[testing.project.md](.claude/rules/testing.project.md#nothing-in-this-repository-runs-the-gate).
+[testing.project.md](.claude/rules/testing.project.md#the-gate-that-runs-every-turn-is-not-in-this-repository).
+CI runs the same checks on `ubuntu-latest` for every push and pull request
+([.github/workflows/gate.yml](.github/workflows/gate.yml)), which answers a different question:
+whether any of it was ever Windows without saying so.
 
 Current work: [docs/todo.md](docs/todo.md). Finished increments: [docs/specs/](docs/specs/).

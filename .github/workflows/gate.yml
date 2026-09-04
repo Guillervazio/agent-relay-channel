@@ -1,0 +1,40 @@
+# La puerta, en una máquina que no es ésta.
+#
+# Hasta ahora todo se verificaba en un solo Windows, y buena parte de lo que este
+# incremento arregla era justamente eso: cosas que sólo funcionaban donde se
+# escribieron. Las cuatro suites de humo no habían corrido nunca en otro sitio.
+name: gate
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # El SDK lo decide global.json, no este fichero: una versión aquí sería una
+          # segunda copia de la misma decisión, y las copias se separan.
+          global-json-file: global.json
+
+      - name: build
+        run: dotnet build --nologo
+
+      # El formato no lo comprueba la compilación, aunque EnforceCodeStyleInBuild esté
+      # activo: son reglas distintas, y ésta es la que el turno de aquí corre a mano.
+      - name: format
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: test
+        run: dotnet test --nologo
+
+      # Las tres superficies contra un hub de verdad, que el propio script levanta y
+      # apaga. Aquí es donde se sabrá si algo de esto era de Windows sin saberlo.
+      - name: smokes
+        run: bash scripts/test-all.sh

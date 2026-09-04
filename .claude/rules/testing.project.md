@@ -90,7 +90,7 @@ repository's prose is written in. Renaming them buys a shape and loses a sentenc
 What this does not authorise: a name that is not a sentence. `Test1` and `SignalTest` fail this
 rule in Spanish as much as in English.
 
-## Nothing in this repository runs the gate
+## The gate that runs every turn is not in this repository
 
 The Stop hook that runs `dotnet format`, `dotnet build` and this suite every turn is **not here**.
 It arrives from the `dotnet-house` plugin, declared in `.claude/settings.json`.
@@ -114,9 +114,19 @@ not need it: discovery finds `Arc.slnx` because it is the only solution in the r
 What this does not authorise: keeping a local copy of the hook "as insurance". Two copies is how
 you get one that is stale and one that is dead, with nothing saying which is which.
 
+**CI is not that gate and does not stand in for it.** `.github/workflows/gate.yml` runs the build,
+the format check, this suite and the four smokes on `ubuntu-latest` for every push to `master` and
+every pull request. It answers minutes later and somewhere else, so it cannot stop a turn — what
+it can do is the one thing the hook cannot: fail on a machine that is not this one. A red run
+there is evidence; a green turn here is still not.
+
 ## What `scripts/test-all.sh` needs that this suite does not
 
-`curl` and `python`. Not `python3` — the scripts call `python`, and on the machine this was
-written on `python3` does not exist while `python` resolves to a conda environment that is on
-`PATH` by accident. `jget()` swallows stderr, so a missing interpreter produces an empty string
-and the test fails reporting a content mismatch. See `docs/backlog.md`.
+`curl` and Python 3.7 or later — under either name. `scripts/preflight.sh` looks for `python3`
+and then `python`, because this machine has only the second and a Linux runner usually only the
+first, and it checks the version because the scripts call `sys.stdout.reconfigure`. Whatever it
+needs and cannot find, it names before any work is done.
+
+That preflight is not decoration. `jget()` swallows stderr, so an absent interpreter used to
+produce an empty string and fail a check complaining about the content of a response that was
+fine — a suite lying about why it failed costs more than one that does not run.

@@ -11,3 +11,6 @@
 # El Dockerfile lo lee un demonio en Linux; CRLF le rompe la continuación de línea.
 Dockerfile text eol=lf
 .dockerignore text eol=lf
+
+# Los workflows los ejecuta un runner de Linux; los pasos `run` acaban en bash.
+.github/workflows/*.yml text eol=lf
