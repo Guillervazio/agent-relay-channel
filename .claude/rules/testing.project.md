@@ -11,26 +11,33 @@ Appendix to [shared/testing.md](shared/testing.md).
 
 | Project | Scope | Isolates with a container? | In the fast gate? |
 |---|---|---|---|
-| `tests/Arc.Tests/Arc.Tests.csproj` | `ChannelService`'s rules and `MessageStore` against a real SQLite file, `WaiterRegistry` in memory, and the published error and exit codes | no | yes |
+| `tests/Arc.Tests/Arc.Tests.csproj` | The channel's rules and its store against a real SQLite file, the waiter registry in memory, the hub's whole pipeline through `TestHost`, the seven MCP tools, the CLI through a fake transport, and the published error and exit codes | no | yes |
 
 One row, one project referencing `Microsoft.NET.Test.Sdk`. Complete.
 
 ## The four categories, here
 
-Only two of the base's four exist. **Unit** is `WaiterRegistryTests` and `ArcErrorsTests`.
-**Persistence** is `MessageStoreTests`, against the engine ARC ships rather than a substitute.
-`ClockTests` spans both: it drives the real channel and the real store, and its subject is what a
-fake clock made assertable.
+**Unit** is `WaiterRegistryTests`, `ArcErrorsTests`, `EventStreamTests` and `CliRunnerTests` —
+the last through a fake `HttpMessageHandler`, so it touches no socket. **Persistence** is
+`MessageStoreTests` and `ConnectionPragmaTests`, against the engine ARC ships rather than a
+substitute. `ClockTests` spans both.
 
-`ChannelServiceTests` is the **integration** row in spirit: the rules of the channel against the
-real store on a temporary file and the real waiter registry, with nothing substituted. It is
-almost entirely refusals, because an endpoint is covered when its failure paths are.
+**Integration** is `ChannelServiceTests` — the rules of the channel against the real store and the
+real waiter registry, nothing substituted — plus `ArcToolsTests`, which drives the seven MCP tools
+over the same channel.
 
-There is no **scenario** suite. What stands in for one is `scripts/test-all.sh`, which starts a
-real hub on port 8791 with a temporary database and drives all four surfaces — REST, CLI, MCP and
-the observer page. It is not in the fast gate and it is not xunit, so **it is not covered by the
-row above**, and that is the honest position: the 401 path is exercised only by a bash script that
-no gate runs.
+**Scenario** is `HubEndpointTests`: the hub's real pipeline in memory through `TestHost`, asserting
+the response envelope and the status mapping the contract publishes, **including the 401 and the
+422 refusals**. That row was empty until increment 04, and what stood in for it was
+`scripts/test-all.sh` — which is still run, still drives all four surfaces against a real hub on
+port 8791, and is still not xunit and not in the fast gate.
+
+The division of labour between them is worth stating, because it decides where a new test goes.
+`HubEndpointTests` owns anything the pipeline decides: status codes, headers, refusals.
+`test-all.sh` owns what only a real process can show — the published `arc.exe` actually running,
+Kestrel's own behaviour under a long poll, and the observer page's event stream over a real
+connection. A check that could live in either belongs in xunit, because that is the one a gate
+runs.
 
 ## Deviations
 

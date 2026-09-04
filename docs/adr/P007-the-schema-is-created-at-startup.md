@@ -6,7 +6,7 @@
 application startup: replicas race each other, the application needs DDL permissions it should not
 have, and a failure turns into a restart loop.
 
-`Arc.Hub/Program.cs` calls `await store.InitializeAsync()` before serving.
+`HubApp.BuildAsync` calls `await store.InitializeAsync()` before returning the application.
 
 ## Decision
 

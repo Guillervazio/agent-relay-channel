@@ -15,6 +15,19 @@ public sealed class WaiterRegistry
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>> _keys = new();
 
+    /// <summary>
+    /// Registrar y desregistrar son atómicos entre sí. Cada operación por separado lo era —
+    /// los dos diccionarios son concurrentes— y la secuencia no: un <c>Register</c> que
+    /// obtenía el diccionario de una clave justo antes de que <c>Unregister</c> lo desalojara
+    /// por vacío insertaba su puesto en un diccionario que <c>Signal</c> ya no alcanzaba, y esa
+    /// espera agotaba su plazo entero sin que nada la despertara.
+    ///
+    /// Reintentar en vez de bloquear deja una ventana residual: el desalojo puede ocurrir
+    /// después de la comprobación. El canal mueve unas decenas de mensajes al día, así que la
+    /// contención de este cerrojo no es medible y sí lo era el fallo.
+    /// </summary>
+    private readonly Lock _gate = new Lock();
+
     public static string InboxKey(string agent) => "inbox:" + agent;
     public static string ResponseKey(string requestId) => "resp:" + requestId;
 
@@ -24,23 +37,33 @@ public sealed class WaiterRegistry
     /// </summary>
     public Waiter Register(string key)
     {
-        ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots = _keys.GetOrAdd(key, static _ => new ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>());
         Guid id = Guid.NewGuid();
         // RunContinuationsAsynchronously: la continuación no debe ejecutarse en el hilo
         // que está sirviendo la petición HTTP de escritura.
         TaskCompletionSource<Message?> tcs = new TaskCompletionSource<Message?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        slots[id] = tcs;
+
+        lock (_gate)
+        {
+            ConcurrentDictionary<Guid, TaskCompletionSource<Message?>> slots = _keys.GetOrAdd(key, static _ => new ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>());
+            slots[id] = tcs;
+        }
+
         return new Waiter(this, key, id, tcs);
     }
 
     /// <summary>Despierta a todos los que esperaban esta clave.</summary>
     public int Signal(string key, Message message)
     {
-        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots))
+        ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots;
+        lock (_gate)
         {
-            return 0;
+            if (!_keys.TryGetValue(key, out slots))
+            {
+                return 0;
+            }
         }
 
+        // Despertar fuera del cerrojo: quien escribe no debe esperar a nadie para hacerlo.
         int woken = 0;
         foreach ((Guid _, TaskCompletionSource<Message?> tcs) in slots)
         {
@@ -54,15 +77,18 @@ public sealed class WaiterRegistry
 
     internal void Unregister(string key, Guid id)
     {
-        if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots))
+        lock (_gate)
         {
-            return;
-        }
+            if (!_keys.TryGetValue(key, out ConcurrentDictionary<Guid, TaskCompletionSource<Message?>>? slots))
+            {
+                return;
+            }
 
-        slots.TryRemove(id, out _);
-        if (slots.IsEmpty)
-        {
-            _keys.TryRemove(KeyValuePair.Create(key, slots));
+            slots.TryRemove(id, out _);
+            if (slots.IsEmpty)
+            {
+                _keys.TryRemove(KeyValuePair.Create(key, slots));
+            }
         }
     }
 

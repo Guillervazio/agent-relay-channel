@@ -2,7 +2,7 @@
 paths:
   - "src/Arc.Core/WaiterRegistry.cs"
   - "src/Arc.Core/EventStream.cs"
-  - "src/Arc.Hub/Program.cs"
+  - "src/Arc.Hub/HubApp.cs"
 ---
 
 # Concurrency and long polling — this project
@@ -57,7 +57,7 @@ does not leak a queue.
 
 ## Kestrel's tuning is correctness, not tuning
 
-Three settings in `Arc.Hub/Program.cs`, each **derived** from something and never set
+Three settings in `Arc.Hub/HubApp.cs`, each **derived** from something and never set
 independently of it:
 
 | Setting | Derived from | What breaks otherwise |
@@ -75,6 +75,22 @@ that would settle it.
 
 ## Shared state between tests
 
-`WaiterRegistry` is a `ConcurrentDictionary` that lives as long as the process. A test that
-registers a waiter and does not dispose it leaves that key populated for whatever runs next in
-the same class. The suite has no container to reset, so this is the coupling to watch here.
+`WaiterRegistry` lives as long as the process. A test that registers a waiter and does not
+dispose it leaves that key populated for whatever runs next in the same class. The suite has no
+container to reset, so this is the coupling to watch here.
+
+## The registry's dictionaries are concurrent; the sequence over them is not
+
+Each dictionary is a `ConcurrentDictionary`, which makes every single operation on it atomic and
+made the sequence of two look safe. It was not: `Unregister` evicts a key's dictionary when it
+empties, and a `Register` holding that dictionary from a moment earlier wrote its slot where
+`Signal` would never look again. The waiter then sat out its whole deadline.
+
+`Register`, `Unregister` and `Signal`'s lookup are therefore under one lock. `Signal` takes only
+the lookup under it and wakes everyone outside, because a writer must not queue behind a reader to
+deliver.
+
+What this does not authorise: reaching for the lock to fix anything else here, or assuming
+concurrent collections make a multi-step operation safe anywhere else in this repository. It is
+affordable *here* because the channel moves a few dozen messages a day — on a hot path the answer
+would have to be a structure that does not need the sequence, not a wider lock.

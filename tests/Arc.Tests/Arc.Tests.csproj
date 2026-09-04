@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
@@ -24,8 +25,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Arc.Hub es un proyecto web: sin esto, TestHost no encuentra ASP.NET Core. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Arc.Core\Arc.Core.csproj" />
     <ProjectReference Include="..\..\src\Arc.Cli\Arc.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Arc.Hub\Arc.Hub.csproj" />
   </ItemGroup>
 
 </Project>

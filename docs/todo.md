@@ -1,44 +1,58 @@
 # Current work
 
-Increment 03 — pay what the backlog says is due. Increments 01 and 02 are closed in
-[specs/](specs/).
+Increment 05 — the channel explains itself, and the hub starts by hand. Increments 01 to 04 are
+closed in [specs/](specs/).
 
-**Last verified** (4 September 2026, at the close of increment 02):
+**Last verified** (4 September 2026, at the close of increment 04):
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
-* `dotnet test` — **49 passed, 0 failed, 0 skipped**, 1 project
+* `dotnet test` — **97 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
-* `bash scripts/test-all.sh` — **four suites green, 61 checks** (24 REST, 12 CLI, 14 MCP, 11 UI)
+* `bash scripts/test-all.sh` — **four suites green, 64 checks** (24 REST, 15 CLI, 14 MCP, 11 UI)
 
 | # | Phase | Status | Commit |
 |---|---|---|---|
-| 1 | `PRAGMA synchronous` moves into `OpenAsync`, where every pooled connection meets it | not started |  |
-| 2 | `WaiterRegistry` stops losing a registration to an eviction, with the test that catches it | not started |  |
-| 3 | `ARC_MAX_WAIT` is refused at startup when it would brick the channel | not started |  |
-| 4 | A malformed `--refs` exits `2` instead of sending the message without it | not started |  |
-| 5 | The denylist names the uninstaller it was always meant to name | not started |  |
+| 1 | `ServerInstructions`: the MCP handshake carries how to use the channel | not started |  |
+| 2 | `scripts/start-hub.ps1`: run the hub by hand, on loopback or on the LAN | not started |  |
+| 3 | `README.md` and `docs/AGENTS.md`: consuming ARC without touching the other repository | not started |  |
 
-Every phase is closed in the same commit that updates its row, and each one leaves
-[backlog.md](backlog.md) as it is fixed.
+Every phase is closed in the same commit that updates its row.
 
 ---
 
-## Why these five and not the other seven
+## What this increment is for
 
-The backlog carries twelve findings. These are the five whose written trigger is **now** — four on
-merit and one by hand — and nothing else in the file is due. The seven that stay are not smaller;
-they are waiting on evidence that has not arrived: a note actually going missing, somebody needing
-to know whether `note`-to-self is legal, a `/v2` that could remove a published enum value.
+ARC works, and using it from a real project still means pasting a block of text into that project's
+`CLAUDE.md` and `AGENTS.md`. That is the part that does not scale: every repository adopting the
+channel gets a copy of the same instructions, and copies drift.
 
-Two of the five are one-line fixes with an outsized failure mode. The `synchronous` pragma is
-emitted once, on the initialising connection, and the pragma is per connection: every operation
-after startup runs at a durability setting the rules call a decision and nobody chose. The
-`WaiterRegistry` race is narrow — a `Register` landing between the emptiness check and the eviction
-— but it opens on the ordinary polling pattern, and the class whose tests exist to catch exactly
-this kind of fault has no test for it.
+The MCP protocol already has the answer. A server may return `instructions` in its `initialize`
+result — natural-language guidance for the model — and `ModelContextProtocol` 2.2.0 exposes it as
+`McpServerOptions.ServerInstructions`. The channel can explain **itself**, once, from the hub, to
+every client that connects.
 
-## What phase 4 owes the increment after it
+That leaves the consuming repository with nothing to change at all: `claude mcp add --scope user`
+writes to `~/.claude.json` and applies to every project, and `~/.codex/config.toml` is already
+global to the user.
 
-`Arc.Cli` has no unit test to assert an exit code with, so phase 4's fix is covered by
-`scripts/smoke-cli.sh` and by nothing a gate runs. The seam that would fix that is increment 04,
-and the test moves there with it rather than waiting for it here.
+**Phase 1 touches the wire**, so `docs/PROTOCOL.md` changes in the same commit and `smoke-mcp.sh`
+gains a check that `instructions` arrives and is not empty. Whether a given client injects it into
+its model's context is a client decision, not a protocol one, and the README has to say so rather
+than promise it.
+
+## Why the hub needs a way to start by hand
+
+`README.md` documents exactly one way to run it: `install-hub.ps1`, which needs an administrator
+console and installs a Windows service. There is no documented way to just start it, which is what
+anybody does the first time.
+
+`scripts/start-hub.ps1` covers both topologies with one switch, generates or reuses the token, and
+says what is missing for LAN rather than failing later — the firewall rule stays
+`install-hub.ps1 -FirewallOnly`, because creating it needs elevation and starting the hub does not.
+
+## What phase 3 must not do
+
+`docs/AGENTS.md` stops being "the text to paste into every repository" and becomes the fallback for
+a client that does not read `instructions`. It does not gain a second home: if the wiring for a
+consuming repository needs writing down, it goes there, not into a new `templates/` directory whose
+only effect would be two copies of the same prose.
