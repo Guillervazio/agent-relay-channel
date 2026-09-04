@@ -36,7 +36,7 @@ On the machine where you build and host the hub:
 | You need | What for | Check |
 |---|---|---|
 | **.NET SDK 10** | All the code targets `net10.0` | `dotnet --version` |
-| **PowerShell** | `publish.ps1` and `install-hub.ps1` | Ships with Windows |
+| **PowerShell** | `start-hub.ps1`, `publish.ps1` and `install-hub.ps1` | Ships with Windows |
 
 And only if you are going to run the smoke tests, which are shell scripts:
 
@@ -58,21 +58,29 @@ The other PC needs none of this: the client you copy over there is self-containe
 dotnet build
 ```
 
-Start the hub (in anonymous mode it only listens on loopback):
+Start it in this console, without installing anything:
 
-```bash
-ARC_ALLOW_ANONYMOUS=1 dotnet run --project src/Arc.Hub
+```powershell
+./scripts/start-hub.ps1
 ```
 
-And in another terminal, check the four surfaces:
+It listens on loopback only. It does not invent a token if you already have one — it takes
+the one in this console, or the one `install-hub.ps1` left at machine level, and generates one
+only when there is none, printing it because both agents need it. The database goes in the
+root of the repository rather than under `bin/`, where a `dotnet clean` would take the channel
+with it. Ctrl+C stops it; there is no service and nothing was installed.
 
-```bash
-bash scripts/smoke.sh && bash scripts/smoke-cli.sh && bash scripts/smoke-mcp.sh && bash scripts/smoke-ui.sh
-```
-
-The panel lives at <http://127.0.0.1:8765/ui>.
+The panel lives at <http://127.0.0.1:8765/ui>. To exercise the four surfaces, see
+[Verification](#verification) at the end: `test-all.sh` brings up its own hub and does not need
+this one.
 
 ## Installing on both PCs
+
+Two things change once the other PC is involved: the hub has to listen on the network rather
+than on loopback, and it has to survive closing the console. `./scripts/start-hub.ps1 -Lan`
+covers the first, and says up front what the LAN needs and it cannot give — the firewall rule,
+which requires elevation, and a network classified as private. This section covers the second,
+which is a Windows service.
 
 ### 1. On the machine hosting the hub
 
@@ -177,15 +185,16 @@ The body is passed by file (`--body-file f`), by stdin (`--body-file -`) or inli
 
 ### As MCP tools
 
-In Claude Code:
+Register it once for your user, not once per repository: `--scope user` writes to
+`~/.claude.json` and applies to every project you open.
 
 ```bash
-claude mcp add --transport http arc http://192.168.1.10:8765/mcp \
+claude mcp add --scope user --transport http arc http://192.168.1.10:8765/mcp \
   --header "X-ARC-Agent: claude-pc1" \
   --header "X-ARC-Token: <token>"
 ```
 
-In Codex CLI, in `~/.codex/config.toml`:
+In Codex CLI, `~/.codex/config.toml` is already global to the user:
 
 ```toml
 [mcp_servers.arc]
@@ -202,6 +211,18 @@ works.
 
 Published tools: `arc_ask`, `arc_await`, `arc_inbox`, `arc_respond`,
 `arc_note`, `arc_thread`, `arc_agents`.
+
+### The repository you work in writes nothing
+
+There is no block to paste into that project's `CLAUDE.md`. The handshake carries the channel's
+own instructions — check the mailbox before you start your turn, ask when you need an answer
+and notify when you do not, send references rather than content, never both wait at once — so
+the rules travel with the hub instead of being copied into every repository that adopts it.
+[docs/PROTOCOL.md](docs/PROTOCOL.md) describes the field.
+
+Whether a client puts that text in front of its model is the client's decision, not this
+project's. Where it does not — and the command-line client has no handshake at all —
+[docs/AGENTS.md](docs/AGENTS.md) says the same things in a form you can paste.
 
 ## Watching the conversation
 
@@ -318,9 +339,9 @@ Code and Codex CLI, both on your network.
 | [src/Arc.Hub](src/Arc.Hub) | HTTP service: REST endpoints, MCP tools and the `/ui` panel |
 | [src/Arc.Cli](src/Arc.Cli) | The `arc` client |
 | [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
-| [scripts](scripts) | Publishing, installation and smoke tests |
+| [scripts](scripts) | Starting, publishing, installation and smoke tests |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
-| [docs/AGENTS.md](docs/AGENTS.md) | Text to paste into each agent's own `CLAUDE.md` / `AGENTS.md` |
+| [docs/AGENTS.md](docs/AGENTS.md) | What the handshake already says, for a client that does not read it |
 
 ## Verification
 

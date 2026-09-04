@@ -3,20 +3,26 @@
 Increment 05 — the channel explains itself, and the hub starts by hand. Increments 01 to 04 are
 closed in [specs/](specs/).
 
-**Last verified** (4 September 2026, at the close of increment 04):
+**Last verified** (4 September 2026, at the close of phases 2 and 3):
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
-* `dotnet test` — **97 passed, 0 failed, 0 skipped**, 1 project
+* `dotnet test` — **99 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
-* `bash scripts/test-all.sh` — **four suites green, 64 checks** (24 REST, 15 CLI, 14 MCP, 11 UI)
+* `bash scripts/test-all.sh` — **four suites green, 66 checks** (24 REST, 15 CLI, 16 MCP, 11 UI)
+* `scripts/start-hub.ps1` by hand, which no suite reaches: started on loopback and answered
+  `/healthz` with `authenticated: true` and the database where it said; the `-Lan` branch printed
+  the firewall rule it does not create, named the network Windows classifies as public, and chose
+  the LAN address rather than WSL's
 
 | # | Phase | Status | Commit |
 |---|---|---|---|
-| 1 | `ServerInstructions`: the MCP handshake carries how to use the channel | done | this commit |
-| 2 | `scripts/start-hub.ps1`: run the hub by hand, on loopback or on the LAN | not started |  |
-| 3 | `README.md` and `docs/AGENTS.md`: consuming ARC without touching the other repository | not started |  |
+| 1 | `ServerInstructions`: the MCP handshake carries how to use the channel | done | `586dfd8` |
+| 2 | `scripts/start-hub.ps1`: run the hub by hand, on loopback or on the LAN | done | this commit |
+| 3 | `README.md` and `docs/AGENTS.md`: consuming ARC without touching the other repository | done | this commit |
 
-Every phase is closed in the same commit that updates its row.
+Every phase is closed in the same commit that updates its row. Phases 2 and 3 share one: the
+README section that phase 3 rewrites is the documentation of the script phase 2 adds, so
+splitting them would put a documented script in one commit and the script in another.
 
 ---
 
