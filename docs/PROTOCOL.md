@@ -141,6 +141,7 @@ Siempre `{"error": "<código>", "detail": "<explicación>"}`:
 | `empty_body` | 400 | Falta el cuerpo |
 | `body_too_large` | 400 | Más de 256 KB |
 | `invalid_json` | 400 | El cuerpo no es JSON válido (o no llegó como UTF-8) |
+| `invalid_refs` | 400 | `refs` no es un objeto JSON válido |
 | `self_addressed` | 400 | Un agente se escribe a sí mismo |
 | `forbidden` | 403 | Buzón ajeno, o responder algo que no va dirigido a ti |
 | `not_found` | 404 | No existe esa petición o ese hilo |

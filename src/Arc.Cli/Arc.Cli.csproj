@@ -7,4 +7,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Arc.Core\Arc.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Los códigos de salida son contrato publicado (P009) y un test los congela.
+         Se abren a la suite en vez de hacerse públicos: nada fuera del CLI los usa. -->
+    <InternalsVisibleTo Include="Arc.Tests" />
+  </ItemGroup>
 </Project>

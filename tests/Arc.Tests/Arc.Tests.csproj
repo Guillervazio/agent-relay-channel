@@ -16,7 +16,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- El contrato publicado, copiado a la salida para que un test compare la
+         tabla contra ArcErrors. Es un fichero versionado, no E/S en tiempo de
+         ejecución: la regla de "sin sistema de ficheros" prohíbe lo segundo. -->
+    <Content Include="..\..\docs\PROTOCOL.md" Link="PROTOCOL.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Arc.Core\Arc.Core.csproj" />
+    <ProjectReference Include="..\..\src\Arc.Cli\Arc.Cli.csproj" />
   </ItemGroup>
 
 </Project>

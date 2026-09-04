@@ -32,10 +32,10 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         string from, string? to, string? body, string? subject, JsonElement? refs,
         string? threadId, int? wait, CancellationToken ct = default)
     {
-        ValidateAgent(to, "bad_recipient");
+        ValidateAgent(to, ArcErrors.BadRecipient);
         if (to == from)
         {
-            throw new ChannelException("self_addressed", "Un agente no puede enviarse peticiones a sí mismo.", 400);
+            throw new ChannelException(ArcErrors.SelfAddressed, "Un agente no puede enviarse peticiones a sí mismo.", 400);
         }
 
         ValidateBody(body);
@@ -86,12 +86,12 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         Message? request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
         {
-            throw new ChannelException("not_found", "No existe esa petición.", 404);
+            throw new ChannelException(ArcErrors.NotFound, "No existe esa petición.", 404);
         }
 
         if (request.From != caller)
         {
-            throw new ChannelException("forbidden", "Sólo el emisor puede esperar esta respuesta.", 403);
+            throw new ChannelException(ArcErrors.Forbidden, "Sólo el emisor puede esperar esta respuesta.", 403);
         }
 
         using Waiter waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
@@ -116,19 +116,19 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         Message? request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
         {
-            throw new ChannelException("not_found", "No existe esa petición.", 404);
+            throw new ChannelException(ArcErrors.NotFound, "No existe esa petición.", 404);
         }
 
         if (request.To != from)
         {
-            throw new ChannelException("forbidden", $"Esta petición va dirigida a '{request.To}'.", 403);
+            throw new ChannelException(ArcErrors.Forbidden, $"Esta petición va dirigida a '{request.To}'.", 403);
         }
 
         // Comprobación temprana para no construir una respuesta que se va a tirar.
         // No es la que decide: la que decide está en el WHERE del store.
         if (request.Status == MessageStatus.Answered)
         {
-            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+            throw new ChannelException(ArcErrors.AlreadyAnswered, "Esa petición ya tiene respuesta.", 409);
         }
 
         Message response = new Message
@@ -148,7 +148,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
         if (!await store.AddResponseAsync(response, ct))
         {
-            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+            throw new ChannelException(ArcErrors.AlreadyAnswered, "Esa petición ya tiene respuesta.", 409);
         }
 
         await store.TouchAgentAsync(from, null, null, sentMessage: true, ct: ct);
@@ -165,7 +165,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         string from, string? to, string? body, string? subject, JsonElement? refs,
         string? threadId, CancellationToken ct = default)
     {
-        ValidateAgent(to, "bad_recipient");
+        ValidateAgent(to, ArcErrors.BadRecipient);
         ValidateBody(body);
 
         Message note = new Message
@@ -196,7 +196,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         if (agent != caller)
         {
-            throw new ChannelException("forbidden", "Un agente sólo puede leer su propio buzón.", 403);
+            throw new ChannelException(ArcErrors.Forbidden, "Un agente sólo puede leer su propio buzón.", 403);
         }
 
         // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
@@ -236,12 +236,12 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         if (string.IsNullOrEmpty(body))
         {
-            throw new ChannelException("empty_body", "El cuerpo del mensaje es obligatorio.", 400);
+            throw new ChannelException(ArcErrors.EmptyBody, "El cuerpo del mensaje es obligatorio.", 400);
         }
 
         if (Encoding.UTF8.GetByteCount(body) > MessageStore.MaxBodyBytes)
         {
-            throw new ChannelException("body_too_large",
+            throw new ChannelException(ArcErrors.BodyTooLarge,
                 $"Máximo {MessageStore.MaxBodyBytes / 1024} KB. Pasa una referencia al repositorio en 'refs' en vez del contenido.", 400);
         }
     }

@@ -98,7 +98,7 @@ app.Use(async (context, next) =>
     // llega como UTF-8 válido (pasar acentos por argv en Git Bash lo provoca).
     catch (BadHttpRequestException exception) when (!context.Response.HasStarted)
     {
-        await Results.Json(new ErrorBody("invalid_json", exception.InnerException?.Message ?? exception.Message),
+        await Results.Json(new ErrorBody(ArcErrors.InvalidJson, exception.InnerException?.Message ?? exception.Message),
             ArcJson.Options, statusCode: StatusCodes.Status400BadRequest).ExecuteAsync(context);
     }
 });
@@ -118,7 +118,7 @@ app.Use(async (context, next) =>
         byte[] presented = Encoding.UTF8.GetBytes(context.Request.Headers["X-ARC-Token"].ToString());
         if (!CryptographicOperations.FixedTimeEquals(presented, tokenBytes))
         {
-            await Results.Json(new ErrorBody("unauthorized", "Cabecera X-ARC-Token ausente o incorrecta."),
+            await Results.Json(new ErrorBody(ArcErrors.Unauthorized, "Cabecera X-ARC-Token ausente o incorrecta."),
                 ArcJson.Options, statusCode: StatusCodes.Status401Unauthorized).ExecuteAsync(context);
             return;
         }
@@ -135,7 +135,7 @@ app.Use(async (context, next) =>
     string agent = context.Request.Headers["X-ARC-Agent"].ToString();
     if (string.IsNullOrWhiteSpace(agent) || !ChannelService.AgentNamePattern.IsMatch(agent))
     {
-        await Results.Json(new ErrorBody("bad_agent",
+        await Results.Json(new ErrorBody(ArcErrors.BadAgent,
                 "Cabecera X-ARC-Agent obligatoria. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64)."),
             ArcJson.Options, statusCode: StatusCodes.Status400BadRequest).ExecuteAsync(context);
         return;
@@ -208,7 +208,7 @@ app.MapGet("/v1/messages/{id}", async (string id, HttpContext context) =>
 {
     Message? message = await store.GetAsync(id, context.RequestAborted);
     return message is null
-        ? Results.NotFound(new ErrorBody("not_found", "No existe ese mensaje."))
+        ? Results.NotFound(new ErrorBody(ArcErrors.NotFound, "No existe ese mensaje."))
         : Results.Ok(message);
 });
 
@@ -216,7 +216,7 @@ app.MapGet("/v1/threads/{id}", async (string id, HttpContext context) =>
 {
     IReadOnlyList<Message> messages = await store.GetThreadAsync(id, context.RequestAborted);
     return messages.Count == 0
-        ? Results.NotFound(new ErrorBody("not_found", "No existe ese hilo."))
+        ? Results.NotFound(new ErrorBody(ArcErrors.NotFound, "No existe ese hilo."))
         : Results.Ok(messages);
 });
 
