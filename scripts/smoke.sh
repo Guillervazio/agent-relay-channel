@@ -8,6 +8,10 @@
 # argumentos de línea de comandos pasan por la codepage ANSI y corrompen el UTF-8.
 set -uo pipefail
 
+. "$(dirname "$0")/preflight.sh"
+require_python || exit 1
+require_cmd curl 'hablar HTTP con el hub' || exit 1
+
 URL="${ARC_URL:-http://127.0.0.1:8765}"
 TOKEN="${ARC_TOKEN:-}"
 A="${ARC_A:-claude-pc1}"
@@ -26,7 +30,7 @@ check() {
 
 # Extrae un campo de un JSON en stdin. Ruta en sintaxis de índices de Python.
 jget() {
-  python -c "
+  "$PY" -c "
 import json,sys
 sys.stdout.reconfigure(encoding='utf-8')
 raw = sys.stdin.buffer.read().decode('utf-8')

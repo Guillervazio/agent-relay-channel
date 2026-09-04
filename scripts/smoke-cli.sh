@@ -5,6 +5,9 @@
 #   ARC_URL=http://127.0.0.1:8765 ./scripts/smoke-cli.sh [ruta/a/arc.exe]
 set -uo pipefail
 
+. "$(dirname "$0")/preflight.sh"
+require_python || exit 1
+
 ARC="${1:-$(dirname "$0")/../src/Arc.Cli/bin/Debug/net10.0/arc.exe}"
 export ARC_URL="${ARC_URL:-http://127.0.0.1:8765}"
 A="${ARC_A:-claude-pc1}"
@@ -18,7 +21,7 @@ check() {
   else echo "  FALLO $1"; fail=$((fail+1)); fi
 }
 jget() {
-  python -c "
+  "$PY" -c "
 import json,sys
 sys.stdout.reconfigure(encoding='utf-8')
 raw = sys.stdin.buffer.read().decode('utf-8')

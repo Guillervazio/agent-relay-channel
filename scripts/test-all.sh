@@ -7,6 +7,11 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
+. scripts/preflight.sh
+require_python || exit 1
+require_cmd curl 'hablar HTTP con el hub' || exit 1
+require_cmd dotnet 'compilar y arrancar el hub' || exit 1
+
 PORT="${ARC_TEST_PORT:-8791}"
 export ARC_URL="http://127.0.0.1:$PORT"
 export ARC_TOKEN="test-$(date +%s)-$RANDOM"

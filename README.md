@@ -44,11 +44,11 @@ And only if you are going to run the smoke tests, which are shell scripts:
 |---|---|---|
 | **bash** | The five `.sh` scripts | Git Bash or WSL |
 | **curl** | `smoke.sh`, `smoke-mcp.sh` and `smoke-ui.sh` speak raw HTTP | `curl --version` |
-| **python 3** | The smokes parse JSON with it | `python --version` |
+| **Python 3.7+** | The smokes parse JSON with it | `python3 --version`, or `python --version` |
 
-> If `python` is not on the PATH, the smokes **do not fail with a clear message**:
-> they return empty fields and you will see checks fall over for no apparent reason.
-> Verify all three before interpreting a failure.
+> Either name works: the scripts try `python3` and then `python`, and check the version of
+> whichever they find. What they need and cannot find they say by name and stop, so a missing
+> interpreter is never reported as a failed check about something else.
 
 The other PC needs none of this: the client you copy over there is self-contained.
 

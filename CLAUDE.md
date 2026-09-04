@@ -20,9 +20,10 @@ dotnet run --project src/Arc.Hub   # the hub on :8765 (needs ARC_TOKEN, or ARC_A
 bash scripts/test-all.sh           # end to end: hub on :8791 + the four smokes
 ```
 
-`test-all.sh` needs `curl` and **`python`** — not `python3`, which does not exist on the machine
-this was written on. `jget()` swallows stderr, so a missing interpreter surfaces as a content
-mismatch about something else. See [docs/backlog.md](docs/backlog.md).
+`test-all.sh` needs `curl` and **Python 3.7 or later under either name**: the scripts try
+`python3` and then `python`, because this machine has only the second and a Linux runner usually
+only the first. Anything they need and cannot find, they name before doing any work —
+[scripts/preflight.sh](scripts/preflight.sh).
 
 ---
 
