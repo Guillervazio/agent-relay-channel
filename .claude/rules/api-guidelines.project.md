@@ -29,9 +29,10 @@ told about a new one.
 
 | Situation | Status |
 |---|---|
-| Created a request, a response or a note | 201 |
+| Created a note, or answered a request | 200 with the message |
+| A request answered inside its `wait` | 200 with the answer |
+| A request that was queued or whose `wait` ran out | 202, `Location` at the message, `outcome` saying which |
 | Read something that exists | 200 |
-| A long poll that timed out with nothing to deliver | 200, with an `outcome` saying so |
 | Body unreadable — malformed JSON, wrong shape | 400 |
 | Well formed, refused by a rule (unknown agent name, body too large, `wait` out of range) | 422 |
 | Missing or wrong `X-ARC-Token` | 401 |
@@ -64,9 +65,18 @@ mistyped their own name.
 
 One definition, and a test spells the literal rather than referencing the constant —
 [H012](../../docs/adr/house/H012-an-error-code-is-defined-once-and-a-test-keeps-the-literal.md).
-ARC violates both halves today: the codes exist in four copies (`ChannelService`,
-`Arc.Hub/Program.cs`, `ArcTools`, and the table in `docs/PROTOCOL.md`) and no test asserts any of
-them. The table in `PROTOCOL.md` stays the published copy; the other three collapse into one.
+ARC satisfies both halves. `Arc.Core/ArcErrors.cs` is the one definition; `ChannelService`,
+`Arc.Hub/Program.cs` and `ArcTools` reference it. `ArcErrorsTests` freezes all twelve literals,
+and a second test reflects over `ArcErrors` and fails if one is missing from the table in
+`docs/PROTOCOL.md`, which stays the published copy.
+
+That second test is deliberately the other shape: it **discovers** the value instead of freezing
+it, because its job is to catch the two copies diverging — a hand-written list would pass exactly
+when somebody adds the thirteenth code and edits neither side, which is how `invalid_refs` once
+went unpublished.
+
+What this does not authorise: a magic string in a test generally. The literal is spelled here
+because the test *is* the client of a published code.
 
 ## Identity is a header, and it is not a credential
 
@@ -114,7 +124,8 @@ told "no hay mensajes" needs to know whether to wait again.
 Recorded so the next reader does not go looking:
 
 * **The response envelope** (`data` / `meta` / `error`). ARC returns the resource directly, with
-  errors as `{ error: { code, message } }`. `PROTOCOL.md` is the description.
+  errors **flat**: `{"error": "<code>", "detail": "<explanation>"}`, which is `ErrorBody` in
+  `Models.cs` and the table in `PROTOCOL.md`. Not the base's nested `error.code` / `error.message`.
 * **FluentValidation.** Validation is hand-written in `ChannelService`, against its parameters —
   which is [H005](../../docs/adr/house/H005-validation-belongs-to-the-command.md) satisfied, not
   avoided: it applies whether the call arrives over REST, MCP or the CLI.
@@ -127,6 +138,26 @@ Recorded so the next reader does not go looking:
 
 ## Deviations
 
-None. Everything above is either a base clause satisfied differently or a clause with no subject,
-and the two gaps — the 400s that should be 422s, and the four copies of the error codes — are
-recorded as work owed rather than as departures.
+### A create answers 200 or 202, never 201
+
+Replaces the base clause under *Which status code*: "**201** for a create, **with a `Location`
+header pointing at what was created**."
+
+`POST /v1/notes` and `POST /v1/requests/{id}/response` answer **200 with the message itself**, and
+`POST /v1/requests` answers **200** when the reply arrived inside the `wait` or **202** when it did
+not. The 202 carries the `Location`.
+
+The reason is that `POST /v1/requests` is not really a create — it is a **call**. A client posting
+it is not asking for a row, it is asking a question and blocking on the answer, and the answer is
+in the body. 201 would describe the byproduct and hide the result. Having settled that for the
+blocking case, 200 for the other two keeps one shape across the surface rather than two.
+
+This is now also **published** in `PROTOCOL.md`, which makes changing it breaking: a different
+status for an existing route is a `/v2`, per [protocol.project.md](protocol.project.md).
+
+What this does not authorise: dropping `Location` from the 202. A client that timed out has to be
+able to find the request it just made without reconstructing the URL.
+
+### Nothing else
+
+Everything else above is either a base clause satisfied differently or a clause with no subject.

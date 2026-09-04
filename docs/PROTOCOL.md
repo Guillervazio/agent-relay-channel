@@ -1,6 +1,6 @@
 # ARC protocol
 
-The channel's contract. Two surfaces (REST and MCP) over the same logic: `ChannelService`
+The channel's contract. Three surfaces (REST, MCP and the CLI) over the same logic: `ChannelService`
 in [src/Arc.Core/ChannelService.cs](../src/Arc.Core/ChannelService.cs).
 
 ## Core idea
@@ -57,7 +57,11 @@ A `request` that was delivered but not answered is still recoverable with
 | `GET` | `/v1/observe/threads?limit=N` | Index of conversations, most recent first. |
 | `GET` | `/v1/observe/stream` | SSE stream of what is happening. |
 
-`wait` is in seconds and is clamped to `ARC_MAX_WAIT` (300 by default). `wait=0` queues and returns.
+`wait` is in seconds and must not exceed `ARC_MAX_WAIT` (300 by default). One that does is
+**refused with `422 invalid_wait`, never silently clamped** — a shortened poll comes back with
+an `outcome` indistinguishable from a real timeout, and the caller never finds out. The refusal
+happens before anything is created, so a rejected `wait` never leaves a request in the channel.
+`wait=0` queues and returns.
 
 ### Observation
 
@@ -88,10 +92,11 @@ is going to answer a notice — and why a conversation can reopen if someone ask
 inside it. The index does not travel over the stream: whoever is watching asks for it
 again when the stream announces a new message.
 
-`/v1/observe/stream` is Server-Sent Events. Three kinds of event:
+`/v1/observe/stream` is Server-Sent Events. Four kinds of event:
 
 | Event | When | Contents |
 |---|---|---|
+| `hello` | Once, when the stream opens | `{ "max_wait_seconds": N, "database": "…", "server_time": "…" }` |
 | `message` | A `request`, `response` or `note` is created | `{ "event": "message", "message": { … } }` |
 | `delivered` | An agent reads its mailbox | `{ "event": "delivered", "ids": ["req_…"] }` |
 | `state` | The waits or the agents change | `{ "waiters": { … }, "agents": [ … ], "observers": N }` |
@@ -168,6 +173,23 @@ model can read it:
 | `arc_note` | Announces without waiting for an answer. |
 | `arc_thread` | Retrieves a complete conversation. |
 | `arc_agents` | Lists who is on the channel. |
+
+## The CLI
+
+`arc` is the third surface. It carries the same operations over REST, and adds one thing the
+other two do not have: **an exit code a shell script can branch on**. The codes are contract —
+one never changes meaning, and a new state takes a new number.
+
+| Code | Meaning |
+|---|---|
+| `0` | Answered, or there are messages, or the operation succeeded |
+| `1` | Network or hub error |
+| `2` | Incorrect use of the command |
+| `3` | The wait expired with no answer, or `--wait 0` queued the request |
+| `4` | The mailbox is empty |
+
+`3` and `4` are not failures. `3` means the request is still alive in the recipient's mailbox
+and can be resumed with `arc await`; `4` means there was nothing to deliver.
 
 ## Encoding
 

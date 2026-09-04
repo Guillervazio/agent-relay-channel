@@ -21,6 +21,7 @@ public sealed class ArcErrorsTests
         Assert.Equal("body_too_large", ArcErrors.BodyTooLarge);
         Assert.Equal("invalid_json", ArcErrors.InvalidJson);
         Assert.Equal("invalid_refs", ArcErrors.InvalidRefs);
+        Assert.Equal("invalid_wait", ArcErrors.InvalidWait);
         Assert.Equal("self_addressed", ArcErrors.SelfAddressed);
         Assert.Equal("forbidden", ArcErrors.Forbidden);
         Assert.Equal("not_found", ArcErrors.NotFound);

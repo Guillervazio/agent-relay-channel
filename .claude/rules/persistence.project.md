@@ -30,22 +30,36 @@ concurrent readers alongside the single writer, a durability trade that survives
 but not a power cut, and a wait rather than an immediate `SQLITE_BUSY` under contention. **None of
 them is a default, and none changes without a record.**
 
+One of the three is not actually in force, and saying so is the point of writing it down.
+`journal_mode` is stored in the file and survives; **`synchronous` is per connection and is not**.
+`InitializeAsync` emits it once, on the startup connection, so only that handle carries `NORMAL` —
+the pool reuses it, and every additional connection runs at the `FULL` default. The durability
+trade the paragraph above describes therefore varies between operations. It is recorded in
+`docs/backlog.md`; the fix is to emit the pragma per connection in `OpenAsync`, not to delete the
+sentence.
+
 ## A write whose correctness depends on a read carries the check in the same statement
 
 This is [H007](../../docs/adr/house/H007-optimistic-concurrency-where-an-update-derives-from-a-read.md),
-and **`AddResponseAsync` violates it today.** `ChannelService.RespondAsync` reads the request,
-checks `Status != Answered` in C#, and then the store runs:
+and **`AddResponseAsync` satisfies it.** The store closes the request and inserts the reply in one
+transaction, carrying the state in the `WHERE` rather than in a prior read:
 
 ```sql
 UPDATE messages SET status = 'answered', answered_at = $answered_at
- WHERE id = $id AND kind = 'request'
+ WHERE id = $id AND kind = 'request' AND status <> 'answered'
 ```
 
-with no condition on status. Two responders that both pass the C# check both insert a response
-row and the request ends up with two answers. The check belongs in the `WHERE`, with the rows
-affected inspected and the transaction rolled back when it is zero. Recorded in `docs/backlog.md`.
+Zero rows affected means somebody else won: the transaction is rolled back and the caller gets
+`false`, which `ChannelService` turns into a 409. The `Status != Answered` check in
+`RespondAsync` stays, and it is **not** the one that decides — it exists so a doomed response is
+not built, and the comment there says so.
 
 The general rule: if the decision to write came from a row you read, the `WHERE` repeats it.
+
+What this does not authorise: dropping the C# check and calling the `WHERE` sufficient in general.
+Here the two are one transaction against one file. A second writer reachable another way — a
+future endpoint, a second hub — would need the uniqueness in the schema, which the table does not
+have today.
 
 ## Schema changes are additive
 

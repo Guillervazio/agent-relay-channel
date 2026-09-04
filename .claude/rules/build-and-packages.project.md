@@ -44,7 +44,7 @@ Seven rows against seven `PackageVersion` entries in `Directory.Packages.props`.
 
 | Package | Reason it was refused |
 |---|---|
-| `FluentAssertions` | Version 8 changed to a licence that is not free for commercial use. The base names `Assert` as the fallback and the 21 existing tests already use it |
+| `FluentAssertions` | Version 8 changed to a licence that is not free for commercial use. The base names `Assert` as the fallback and all 44 existing tests already use it |
 | `Swashbuckle` / `NSwag` | ARC publishes `docs/PROTOCOL.md` as its contract and has no generated OpenAPI document. A second, generated description of the same wire is a second thing to keep true |
 
 ## Pinned

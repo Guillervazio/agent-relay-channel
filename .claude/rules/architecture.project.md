@@ -18,10 +18,18 @@ in `docs/backlog.md` and belongs to the package, not to this repository.
 Arc.Cli  → Arc.Core
 Arc.Hub  → Arc.Core
 Arc.Core → the BCL and Microsoft.Data.Sqlite, and nothing else
-Arc.Tests → Arc.Core
+Arc.Tests → Arc.Core, Arc.Cli
 ```
 
 `Arc.Core` never references `Arc.Hub` or `Arc.Cli`, and neither surface references the other.
+
+`Arc.Tests → Arc.Cli` is the one edge that is not a surface pointing at the core, and it exists for
+exactly one reason: `ExitCodes` is published contract and a test freezes its numbers
+([P009](../../docs/adr/P009-the-cli-exit-codes-are-contract.md)). The class stays `internal`,
+opened with `InternalsVisibleTo`. What this does not authorise: testing the CLI's behaviour through
+that reference. Its `Program.cs` is top-level statements with no seam, and reaching for one would
+be a design change, not a test.
+
 There is no dependency-injection container in `Arc.Core`: the hub wires it up, the CLI does not
 need one.
 

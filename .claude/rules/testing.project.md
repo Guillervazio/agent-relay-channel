@@ -11,7 +11,7 @@ Appendix to [shared/testing.md](shared/testing.md).
 
 | Project | Scope | Isolates with a container? | In the fast gate? |
 |---|---|---|---|
-| `tests/Arc.Tests/Arc.Tests.csproj` | `MessageStore` against a real SQLite file, and `WaiterRegistry` in memory | no | yes |
+| `tests/Arc.Tests/Arc.Tests.csproj` | `ChannelService`'s rules and `MessageStore` against a real SQLite file, `WaiterRegistry` in memory, and the published error and exit codes | no | yes |
 
 One row, one project referencing `Microsoft.NET.Test.Sdk`. Complete.
 
@@ -70,7 +70,7 @@ What this does not authorise: asserting against the real clock once a `TimeProvi
 
 Replaces the base clause under *Naming and shape*: `MethodName_Should_ExpectedBehaviour_When_Condition`.
 
-The 21 existing tests read `Una_senal_previa_a_la_espera_no_se_pierde`. They say the same thing
+The 44 existing tests read `Una_senal_previa_a_la_espera_no_se_pierde`. They say the same thing
 the pattern asks for — subject, expected behaviour, condition — in the language the rest of this
 repository's prose is written in. Renaming them buys a shape and loses a sentence.
 
