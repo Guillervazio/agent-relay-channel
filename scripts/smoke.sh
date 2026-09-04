@@ -127,11 +127,11 @@ echo "== 5. Reglas de acceso =="
 check "un agente no puede leer el buzón ajeno" $?
 
 body '{"to":"'"$B"'","body":""}' empty.json
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/requests" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/empty.json")" = "400" ]
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/requests" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/empty.json")" = "422" ]
 check "se rechaza un cuerpo vacío" $?
 
 body '{"to":"'"$B"'","body":"x"}' anon.json
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/requests" "${hdr[@]}" --data-binary "@$WORK/anon.json")" = "400" ]
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/requests" "${hdr[@]}" --data-binary "@$WORK/anon.json")" = "422" ]
 check "se rechaza una petición sin identidad" $?
 
 body '{"body":"otra vez"}' dup.json
@@ -145,6 +145,21 @@ check "sólo el destinatario puede responder" $?
 printf '%s' '{"to":"x", esto no es json}' > "$WORK/broken.json"
 curl -s -X POST "$URL/v1/requests" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/broken.json" | grep -q 'invalid_json'
 check "un JSON malformado explica el motivo, no un 400 mudo" $?
+
+# La distinción que separa 400 de 422: esto no se pudo leer, no es una regla incumplida.
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/requests" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/broken.json")" = "400" ]
+check "un cuerpo ilegible sigue siendo 400, no 422" $?
+
+# Una espera fuera de rango se rechaza en vez de recortarse: una espera acortada
+# en silencio vuelve indistinguible de un plazo agotado de verdad.
+body '{"to":"'"$B"'","body":"x"}' longwait.json
+out=$(curl -s -w '\n%{http_code}' -X POST "$URL/v1/requests?wait=999999" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/longwait.json")
+[ "$(printf '%s' "$out" | tail -n1)" = "422" ] && printf '%s' "$out" | grep -q 'invalid_wait'
+check "un 'wait' fuera de rango se rechaza, no se recorta" $?
+
+# Y no deja la petición creada por el camino.
+[ "$(curl -s "$URL/v1/inbox/$B" "${hdr[@]}" -H "X-ARC-Agent: $B" | grep -c '"x"')" = "0" ]
+check "una petición rechazada por el 'wait' no llega al buzón" $?
 
 echo
 echo "$pass correctas, $fail fallidas"

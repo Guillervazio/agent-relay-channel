@@ -94,7 +94,7 @@ SESSION=""
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/mcp" \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
   ${TOKEN:+-H "X-ARC-Token: $TOKEN"} --data-binary "@$WORK/init.json")
-[ "$code" = "400" ]
+[ "$code" = "422" ]
 check "sin X-ARC-Agent el servidor MCP rechaza la conexión" $?
 
 echo

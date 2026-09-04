@@ -11,8 +11,8 @@ export ARC_URL=http://127.0.0.1:8765
 export ARC_AGENT=claude-a
 # El token es el que imprimió install-hub.ps1; la demo lo dejó en demo/token.txt,
 # que no está versionado.
-export ARC_TOKEN=$(cat "C:/Users/Guille/Claude Stuff/inter-model-communication/demo/token.txt")
-"C:/Users/Guille/Claude Stuff/inter-model-communication/publish/cli/arc.exe" inbox
+export ARC_TOKEN=$(cat "C:/Users/Guille/Claude Stuff/agent-relay-channel/demo/token.txt")
+"C:/Users/Guille/Claude Stuff/agent-relay-channel/publish/cli/arc.exe" inbox
 ```
 
 ## Tu tarea

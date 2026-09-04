@@ -39,21 +39,18 @@ told about a new one.
 | No such message, request or thread | 404 |
 | Responding to a request that already has a response | 409 |
 
-422-versus-400 is [H013](../../docs/adr/house/H013-422-for-a-well-formed-request-that-fails-validation.md).
-**ARC does not satisfy it today.** Counted rather than estimated, four codes answer 400 that this
-table says answer 422, and a fifth is a judgement call:
+422-versus-400 is [H013](../../docs/adr/house/H013-422-for-a-well-formed-request-that-fails-validation.md),
+adopted as [P011](../../docs/adr/P011-422-for-a-refused-request.md) and **satisfied**: exactly one
+code answers 400, and it is the one whose request could not be read.
 
-| Code | Where | Verdict |
+| Code | Status | Why that one |
 |---|---|---|
-| `self_addressed` | `ChannelService` | 422. Well formed, refused by a rule |
-| `empty_body` | `ChannelService` | 422 |
-| `body_too_large` | `ChannelService` | 422 |
-| `bad_recipient` | `ChannelService.ValidateAgent` | 422 |
-| `bad_agent` | `Arc.Hub/Program.cs`, the `X-ARC-Agent` header | **Undecided.** A malformed header is arguably a request that could not be read, which is the 400 case. Decide it in the commit that moves the other four |
-| `invalid_json` | `Arc.Hub/Program.cs` | 400, and correct. The body could not be read at all |
+| `invalid_json` | 400 | The body could not be parsed at all. This is the whole 400 case |
+| `bad_agent`, `bad_recipient`, `empty_body`, `body_too_large`, `invalid_refs`, `invalid_wait`, `self_addressed` | 422 | Read successfully, refused by a rule |
 
-The table above is the target; `docs/backlog.md` carries the gap. It is written as a gap and not
-as fact because a rule describing the code as one wishes it were is a rule nobody can check.
+`bad_agent` was the judgement call and went to 422: it is `AgentNamePattern` refusing a value, and
+the same pattern refusing the same shape in the body is `bad_recipient`. One validator answering
+two different statuses depending on where the value travelled is the incoherence H013 removes.
 
 ## 403, not 404, on another agent's mailbox
 
@@ -89,14 +86,14 @@ token the viewer supplies. See [P010](../../docs/adr/P010-the-observer-page-is-u
 
 Every endpoint that can wait takes `?wait=` in seconds, bounded by `ARC_MAX_WAIT`.
 
-Today `ChannelService.Clamp` is `Math.Clamp(requested ?? 0, 0, MaxWaitSeconds)`: a caller asking
-for 600 against a maximum of 300 is **silently given 300**, and its poll returns at half the time
-it asked for with an `outcome` that looks like an ordinary timeout. That is the shape the base
-warns about, and it is a gap in `docs/backlog.md` rather than a rule pretending to be satisfied.
+An out-of-range `wait` is **422 (`invalid_wait`), never a silent clamp.** The caller asked for
+something the server will not do, and answering as though it agreed makes a truncated wait
+indistinguishable from a real timeout — the poll comes back early with an `outcome` that says
+nothing happened, which is true and useless.
 
-The rule, for anything written from here on: an out-of-range `wait` is **422**. The caller asked
-for something the server will not do, and answering as though it agreed makes a truncated wait
-indistinguishable from a real one.
+`ChannelService.ValidateWait` is the one place that decides it, and every caller validates
+**before** doing any work: a rejected `wait` must not leave a request created in the channel and
+then answer 422 to the agent that created it.
 
 A timed-out poll is a **200 with an `outcome`**, not a 404 and not a 408: nothing failed, and the
 request it was waiting on is still alive in the mailbox. Every long-lived handler honours

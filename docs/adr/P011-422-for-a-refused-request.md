@@ -16,12 +16,17 @@ A client can tell a bug in its own serialisation from a rule it broke, without r
 code — which matters most for the MCP surface, where the caller is a model deciding whether to
 retry.
 
-Four codes move: `self_addressed`, `empty_body`, `body_too_large`, `bad_recipient`. `invalid_json`
-stays 400 and is the case H013 exists to distinguish. `bad_agent` on the `X-ARC-Agent` header is
-undecided and is settled by the commit that moves the other four.
+Seven codes answer 422: `self_addressed`, `empty_body`, `body_too_large`, `bad_recipient`,
+`bad_agent`, `invalid_refs` and `invalid_wait`. `invalid_json` stays 400 and is the case H013
+exists to distinguish — one code, for the one situation where nothing could be read.
 
-**This is a target, not the current state.** The code answers 400 today, and
-`.claude/rules/api-guidelines.project.md` carries the table with the gap marked.
+`bad_agent` was the open question and went to 422. A malformed `X-ARC-Agent` header is arguably
+framing rather than content, but it is `AgentNamePattern` refusing a value, and that same pattern
+refusing that same shape inside the body is `bad_recipient`. One validator answering two different
+statuses depending on where the value travelled is the incoherence this record removes.
+
+`invalid_wait` is new, and it replaces a silent clamp: `Math.Clamp` gave a caller asking for 600
+seconds a 300-second wait that came back looking like an ordinary timeout.
 
 ## What this does not authorise
 

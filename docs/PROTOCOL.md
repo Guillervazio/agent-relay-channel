@@ -136,16 +136,22 @@ Siempre `{"error": "<código>", "detail": "<explicación>"}`:
 | Código | HTTP | Motivo |
 |---|---|---|
 | `unauthorized` | 401 | `X-ARC-Token` ausente o incorrecto |
-| `bad_agent` | 400 | `X-ARC-Agent` ausente o mal formado |
-| `bad_recipient` | 400 | `to` ausente o mal formado |
-| `empty_body` | 400 | Falta el cuerpo |
-| `body_too_large` | 400 | Más de 256 KB |
-| `invalid_json` | 400 | El cuerpo no es JSON válido (o no llegó como UTF-8) |
-| `invalid_refs` | 400 | `refs` no es un objeto JSON válido |
-| `self_addressed` | 400 | Un agente se escribe a sí mismo |
+| `invalid_json` | 400 | El cuerpo no se pudo leer: no es JSON válido, o no llegó como UTF-8 |
+| `bad_agent` | 422 | `X-ARC-Agent` ausente o mal formado |
+| `bad_recipient` | 422 | `to` ausente o mal formado |
+| `empty_body` | 422 | Falta el cuerpo |
+| `body_too_large` | 422 | Más de 256 KB |
+| `invalid_refs` | 422 | `refs` no es un objeto JSON válido |
+| `invalid_wait` | 422 | `wait` fuera del rango que admite el hub |
+| `self_addressed` | 422 | Un agente se escribe a sí mismo |
 | `forbidden` | 403 | Buzón ajeno, o responder algo que no va dirigido a ti |
 | `not_found` | 404 | No existe esa petición o ese hilo |
 | `already_answered` | 409 | Esa petición ya tiene respuesta |
+
+`400` es sólo para lo que no se pudo leer. Una petición que llegó entera y a la que
+una regla dijo que no responde `422`: así un cliente distingue un fallo suyo de
+serialización de una regla que ha incumplido, sin mirar el código.
+
 
 ## Herramientas MCP
 

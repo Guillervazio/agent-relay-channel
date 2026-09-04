@@ -33,6 +33,9 @@ public static class ArcErrors
     /// <summary><c>refs</c> no es un objeto JSON válido.</summary>
     public const string InvalidRefs = "invalid_refs";
 
+    /// <summary><c>wait</c> fuera del rango que admite el hub.</summary>
+    public const string InvalidWait = "invalid_wait";
+
     /// <summary>Un agente se escribe a sí mismo.</summary>
     public const string SelfAddressed = "self_addressed";
 

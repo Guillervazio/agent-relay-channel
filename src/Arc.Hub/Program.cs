@@ -137,7 +137,7 @@ app.Use(async (context, next) =>
     {
         await Results.Json(new ErrorBody(ArcErrors.BadAgent,
                 "Cabecera X-ARC-Agent obligatoria. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64)."),
-            ArcJson.Options, statusCode: StatusCodes.Status400BadRequest).ExecuteAsync(context);
+            ArcJson.Options, statusCode: StatusCodes.Status422UnprocessableEntity).ExecuteAsync(context);
         return;
     }
 

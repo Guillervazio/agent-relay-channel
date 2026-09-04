@@ -35,10 +35,14 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         ValidateAgent(to, ArcErrors.BadRecipient);
         if (to == from)
         {
-            throw new ChannelException(ArcErrors.SelfAddressed, "Un agente no puede enviarse peticiones a sí mismo.", 400);
+            throw new ChannelException(ArcErrors.SelfAddressed, "Un agente no puede enviarse peticiones a sí mismo.", 422);
         }
 
         ValidateBody(body);
+
+        // Antes de insertar: un 'wait' fuera de rango no debe dejar la petición
+        // creada en el canal y contestar 422 a quien la creó.
+        int seconds = ValidateWait(wait);
 
         string requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
         string thread = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16];
@@ -66,7 +70,6 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         registry.Signal(WaiterRegistry.InboxKey(to!), message);
         events?.PublishMessage(message);
 
-        int seconds = Clamp(wait);
         if (seconds == 0)
         {
             return new AskResult { Outcome = "queued", RequestId = requestId, ThreadId = thread };
@@ -83,6 +86,8 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
     public async Task<AskResult> AwaitResponseAsync(string caller, string requestId, int? wait, CancellationToken ct = default)
     {
+        int seconds = ValidateWait(wait);
+
         Message? request = await store.GetAsync(requestId, ct);
         if (request is null || request.Kind != MessageKind.Request)
         {
@@ -97,7 +102,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         using Waiter waiter = registry.Register(WaiterRegistry.ResponseKey(requestId));
 
         Message? response = await store.GetResponseForAsync(requestId, ct);
-        if (response is null && Clamp(wait) is int seconds and > 0)
+        if (response is null && seconds > 0)
         {
             response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
                        ?? await store.GetResponseForAsync(requestId, ct);
@@ -194,6 +199,8 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     public async Task<IReadOnlyList<Message>> InboxAsync(
         string caller, string agent, bool includeUnanswered, int? wait, CancellationToken ct = default)
     {
+        int seconds = ValidateWait(wait);
+
         if (agent != caller)
         {
             throw new ChannelException(ArcErrors.Forbidden, "Un agente sólo puede leer su propio buzón.", 403);
@@ -203,7 +210,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         using Waiter waiter = registry.Register(WaiterRegistry.InboxKey(agent));
 
         IReadOnlyList<Message> messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
-        if (messages.Count == 0 && Clamp(wait) is int seconds and > 0)
+        if (messages.Count == 0 && seconds > 0)
         {
             if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
             {
@@ -221,14 +228,29 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         return messages;
     }
 
-    public int Clamp(int? requested) => Math.Clamp(requested ?? 0, 0, MaxWaitSeconds);
+    /// <summary>
+    /// Segundos de espera pedidos, comprobados contra el máximo. Rechaza en vez de
+    /// recortar: una espera acortada en silencio vuelve con un <c>outcome</c>
+    /// indistinguible de un plazo agotado de verdad, y el llamante no se entera.
+    /// </summary>
+    public int ValidateWait(int? requested)
+    {
+        int seconds = requested ?? 0;
+        if (seconds < 0 || seconds > MaxWaitSeconds)
+        {
+            throw new ChannelException(ArcErrors.InvalidWait,
+                $"'wait' va entre 0 y {MaxWaitSeconds} segundos.", 422);
+        }
+
+        return seconds;
+    }
 
     public static void ValidateAgent(string? name, string code)
     {
         if (string.IsNullOrWhiteSpace(name) || !AgentNamePattern.IsMatch(name))
         {
             throw new ChannelException(code,
-                "Nombre de agente ausente o inválido. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64).", 400);
+                "Nombre de agente ausente o inválido. Formato: minúsculas, dígitos, punto, guion o guion bajo (máx. 64).", 422);
         }
     }
 
@@ -236,13 +258,13 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     {
         if (string.IsNullOrEmpty(body))
         {
-            throw new ChannelException(ArcErrors.EmptyBody, "El cuerpo del mensaje es obligatorio.", 400);
+            throw new ChannelException(ArcErrors.EmptyBody, "El cuerpo del mensaje es obligatorio.", 422);
         }
 
         if (Encoding.UTF8.GetByteCount(body) > MessageStore.MaxBodyBytes)
         {
             throw new ChannelException(ArcErrors.BodyTooLarge,
-                $"Máximo {MessageStore.MaxBodyBytes / 1024} KB. Pasa una referencia al repositorio en 'refs' en vez del contenido.", 400);
+                $"Máximo {MessageStore.MaxBodyBytes / 1024} KB. Pasa una referencia al repositorio en 'refs' en vez del contenido.", 422);
         }
     }
 

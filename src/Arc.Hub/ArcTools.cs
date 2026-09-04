@@ -23,7 +23,7 @@ public sealed class ArcTools
         accessor.HttpContext is { } context && context.Items.TryGetValue(AgentKey, out object? agent) && agent is string name
             ? name
             : throw new ChannelException(ArcErrors.BadAgent,
-                "Este servidor MCP no sabe quién eres. Añade la cabecera X-ARC-Agent en la configuración del cliente.", 400);
+                "Este servidor MCP no sabe quién eres. Añade la cabecera X-ARC-Agent en la configuración del cliente.", 422);
 
     [McpServerTool(Name = "arc_ask")]
     [Description("Pregunta algo a otro agente y espera su respuesta. Bloquea hasta que conteste o venza el plazo. " +
@@ -210,7 +210,7 @@ public sealed class ArcTools
         }
         catch (JsonException exception)
         {
-            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser un objeto JSON válido: {exception.Message}", 400);
+            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser un objeto JSON válido: {exception.Message}", 422);
         }
     }
 }
