@@ -65,7 +65,9 @@ public static class HubApp
 
         // Superficie MCP: las mismas operaciones, como herramientas nativas del agente.
         builder.Services
-            .AddMcpServer()
+            // Las instrucciones viajan en el handshake: el canal se explica a sí mismo en vez
+            // de que cada proyecto pegue las mismas reglas en su CLAUDE.md y las deje divergir.
+            .AddMcpServer(options => options.ServerInstructions = ArcInstructions.Text)
             .WithHttpTransport()
             .WithTools<ArcTools>();
 

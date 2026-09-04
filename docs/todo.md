@@ -12,7 +12,7 @@ closed in [specs/](specs/).
 
 | # | Phase | Status | Commit |
 |---|---|---|---|
-| 1 | `ServerInstructions`: the MCP handshake carries how to use the channel | not started |  |
+| 1 | `ServerInstructions`: the MCP handshake carries how to use the channel | done | this commit |
 | 2 | `scripts/start-hub.ps1`: run the hub by hand, on loopback or on the LAN | not started |  |
 | 3 | `README.md` and `docs/AGENTS.md`: consuming ARC without touching the other repository | not started |  |
 
