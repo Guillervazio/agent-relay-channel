@@ -58,11 +58,13 @@ builder.Services.Configure<JsonOptions>(options =>
     }
 });
 
-MessageStore store = new MessageStore(databasePath);
+TimeProvider time = TimeProvider.System;
+MessageStore store = new MessageStore(databasePath, time);
 WaiterRegistry registry = new WaiterRegistry();
-EventStream events = new EventStream();
-ChannelService channel = new ChannelService(store, registry, maxWaitSeconds, events);
+EventStream events = new EventStream(time);
+ChannelService channel = new ChannelService(store, registry, maxWaitSeconds, events, time);
 
+builder.Services.AddSingleton(time);
 builder.Services.AddSingleton(store);
 builder.Services.AddSingleton(registry);
 builder.Services.AddSingleton(events);
@@ -78,7 +80,7 @@ builder.Services
 WebApplication app = builder.Build();
 await store.InitializeAsync();
 
-DateTimeOffset startedAt = DateTimeOffset.UtcNow;
+DateTimeOffset startedAt = time.GetUtcNow();
 byte[]? tokenBytes = token is null ? null : Encoding.UTF8.GetBytes(token);
 
 // ---------- Errores ----------
@@ -157,7 +159,7 @@ app.MapGet("/healthz", async () => Results.Json(new
 {
     status = "ok",
     started_at = startedAt,
-    uptime_seconds = (int)(DateTimeOffset.UtcNow - startedAt).TotalSeconds,
+    uptime_seconds = (int)(time.GetUtcNow() - startedAt).TotalSeconds,
     authenticated = tokenBytes is not null,
     max_wait_seconds = maxWaitSeconds,
     database = databasePath,
@@ -241,7 +243,7 @@ app.MapGet("/v1/observe/history", async (int? limit, string? thread, Cancellatio
     waiters = registry.Snapshot(),
     max_wait_seconds = maxWaitSeconds,
     authenticated = tokenBytes is not null,
-    server_time = DateTimeOffset.UtcNow
+    server_time = time.GetUtcNow()
 }, ArcJson.Options));
 
 // El índice de conversaciones del canal: una fila por hilo, sin cuerpos. Es lo que
@@ -276,7 +278,7 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
             waiters = registry.Snapshot(),
             agents = await store.ListAgentsAsync(ct),
             observers = events.SubscriberCount,
-            server_time = DateTimeOffset.UtcNow
+            server_time = time.GetUtcNow()
         };
         string serialized = System.Text.Json.JsonSerializer.Serialize(payload, ArcJson.Compact);
         // server_time cambia siempre; se compara sin él para no emitir estado inmóvil.
@@ -293,7 +295,7 @@ app.MapGet("/v1/observe/stream", async (HttpContext context) =>
 
     try
     {
-        await SendAsync("hello", new { max_wait_seconds = maxWaitSeconds, database = databasePath, server_time = DateTimeOffset.UtcNow });
+        await SendAsync("hello", new { max_wait_seconds = maxWaitSeconds, database = databasePath, server_time = time.GetUtcNow() });
         await SendStateIfChangedAsync();
 
         Task<bool> pending = subscription.Reader.WaitToReadAsync(ct).AsTask();

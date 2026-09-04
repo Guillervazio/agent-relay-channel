@@ -12,9 +12,12 @@ public sealed class MessageStore
     public const int MaxBodyBytes = 256 * 1024;
 
     private readonly string _connectionString;
+    private readonly TimeProvider _time;
 
-    public MessageStore(string databasePath)
+    public MessageStore(string databasePath, TimeProvider? time = null)
     {
+        _time = time ?? TimeProvider.System;
+
         SqliteConnectionStringBuilder builder = new SqliteConnectionStringBuilder
         {
             DataSource = databasePath,
@@ -314,7 +317,7 @@ public sealed class MessageStore
         command.Parameters.AddWithValue("$id", id);
         command.Parameters.AddWithValue("$provider", (object?)provider ?? DBNull.Value);
         command.Parameters.AddWithValue("$host", (object?)host ?? DBNull.Value);
-        command.Parameters.AddWithValue("$last_seen", Format(DateTimeOffset.UtcNow));
+        command.Parameters.AddWithValue("$last_seen", Format(_time.GetUtcNow()));
         command.Parameters.AddWithValue("$sent", sentMessage ? 1 : 0);
         await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }

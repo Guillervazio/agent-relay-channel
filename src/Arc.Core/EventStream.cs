@@ -9,7 +9,7 @@ public sealed record ChannelEvent
     /// <summary>message | delivered</summary>
     public required string Event { get; init; }
 
-    public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
+    public required DateTimeOffset At { get; init; }
 
     /// <summary>El mensaje recién creado, en los eventos <c>message</c>.</summary>
     public Message? Message { get; init; }
@@ -26,11 +26,12 @@ public sealed record ChannelEvent
 /// de larga duración que sólo miran. Un observador lento nunca debe frenar al canal,
 /// así que cada cola es acotada y descarta lo más viejo en vez de bloquear al emisor.
 /// </summary>
-public sealed class EventStream
+public sealed class EventStream(TimeProvider? time = null)
 {
     private const int QueueCapacity = 256;
 
     private readonly ConcurrentDictionary<Guid, Channel<ChannelEvent>> _subscribers = new();
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     public int SubscriberCount => _subscribers.Count;
 
@@ -55,13 +56,13 @@ public sealed class EventStream
     }
 
     public void PublishMessage(Message message) =>
-        Publish(new ChannelEvent { Event = "message", Message = message });
+        Publish(new ChannelEvent { Event = "message", At = _time.GetUtcNow(), Message = message });
 
     public void PublishDelivered(IReadOnlyList<string> ids)
     {
         if (ids.Count > 0)
         {
-            Publish(new ChannelEvent { Event = "delivered", Ids = ids });
+            Publish(new ChannelEvent { Event = "delivered", At = _time.GetUtcNow(), Ids = ids });
         }
     }
 

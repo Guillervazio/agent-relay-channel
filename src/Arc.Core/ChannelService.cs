@@ -15,8 +15,12 @@ public sealed class ChannelException(string code, string detail, int status) : E
 /// Las reglas del canal, en un solo sitio. REST y MCP son dos fachadas sobre
 /// esto: si la lógica viviera en los endpoints, ambas acabarían divergiendo.
 /// </summary>
-public sealed class ChannelService(MessageStore store, WaiterRegistry registry, int maxWaitSeconds = 300, EventStream? events = null)
+public sealed class ChannelService(MessageStore store, WaiterRegistry registry, int maxWaitSeconds = 300,
+    EventStream? events = null, TimeProvider? time = null)
 {
+    // El reloj entra por la puerta para que un test pueda fijarlo; en producción es el del sistema.
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     /// <summary>Nombres de agente acotados: son claves del registro de esperas.</summary>
     public static readonly Regex AgentNamePattern = new("^[a-z0-9][a-z0-9._-]{0,63}$", RegexOptions.Compiled);
 
@@ -62,7 +66,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             Body = body!,
             Refs = refs,
             Status = MessageStatus.Pending,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = _time.GetUtcNow()
         };
 
         await store.AddAsync(message, ct);
@@ -148,7 +152,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             Refs = refs,
             Status = MessageStatus.Pending,
             CorrelationId = requestId,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = _time.GetUtcNow()
         };
 
         if (!await store.AddResponseAsync(response, ct))
@@ -184,7 +188,7 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             Body = body!,
             Refs = refs,
             Status = MessageStatus.Pending,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = _time.GetUtcNow()
         };
 
         await store.AddAsync(note, ct);
