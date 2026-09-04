@@ -52,7 +52,7 @@ below its random field is worse than the random identifier it would replace.
 
 ## The CLI's exit codes are published contract
 
-`Arc.Cli.ExitCodes`: 0 ok, 1 error, 2 usage, 3 timeout, 4 empty. `docs/AGENTES.md` tells an agent
+`Arc.Cli.ExitCodes`: 0 ok, 1 error, 2 usage, 3 timeout, 4 empty. `docs/AGENTS.md` tells an agent
 to branch on them, which makes them as much a contract as any JSON field.
 
 A code never changes meaning. A new state takes a new number. And a test **spells the number as a

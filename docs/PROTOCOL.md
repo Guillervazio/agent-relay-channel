@@ -1,77 +1,78 @@
-# Protocolo ARC
+# ARC protocol
 
-Contrato del canal. Dos superficies (REST y MCP) sobre la misma lógica: `ChannelService`
-en [src/Arc.Core/ChannelService.cs](../src/Arc.Core/ChannelService.cs).
+The channel's contract. Two surfaces (REST and MCP) over the same logic: `ChannelService`
+in [src/Arc.Core/ChannelService.cs](../src/Arc.Core/ChannelService.cs).
 
-## Idea central
+## Core idea
 
-Un agente de línea de comandos **no es un servidor**: sólo existe mientras dura su turno.
-No puede mantener una suscripción abierta ni reaccionar a un evento que llegue mientras
-está inactivo. Por eso el canal no usa un broker de mensajes, sino **long-polling HTTP**:
-la petición del agente se queda abierta en el servidor hasta que llega la respuesta o
-vence el plazo. Encaja con el modelo por turnos sin infraestructura adicional.
+A command-line agent **is not a server**: it only exists for the duration of its turn.
+It cannot hold an open subscription, nor react to an event that arrives while it is idle.
+That is why the channel does not use a message broker, but **HTTP long polling**: the
+agent's request stays open on the server until the answer arrives or the deadline runs
+out. It fits the turn-based model with no extra infrastructure.
 
-## Identidad
+## Identity
 
-Toda petición (salvo `/healthz`) lleva dos cabeceras:
+Every request (except `/healthz`) carries two headers:
 
-| Cabecera | Obligatoria | Contenido |
+| Header | Mandatory | Contents |
 |---|---|---|
-| `X-ARC-Agent` | sí | Identidad del emisor: `^[a-z0-9][a-z0-9._-]{0,63}$` |
-| `X-ARC-Token` | si el hub tiene `ARC_TOKEN` | Secreto compartido |
-| `X-ARC-Provider` | no | Etiqueta informativa: `claude-code`, `codex`… |
+| `X-ARC-Agent` | yes | Sender's identity: `^[a-z0-9][a-z0-9._-]{0,63}$` |
+| `X-ARC-Token` | if the hub has `ARC_TOKEN` | Shared secret |
+| `X-ARC-Provider` | no | Informational label: `claude-code`, `codex`… |
 
-El nombre del agente es la clave del registro de esperas, de ahí el formato acotado.
-Un agente sólo puede **leer su propio buzón** y **responder a lo que va dirigido a él**.
+The agent's name is the key of the wait registry, hence the constrained format.
+An agent may only **read its own mailbox** and **answer what is addressed to it**.
 
-## Tipos de mensaje
+## Message types
 
-| Tipo | Espera respuesta | Uso |
+| Type | Expects an answer | Use |
 |---|---|---|
-| `request` | sí | Preguntar algo que necesitas para continuar |
-| `response` | — | Contestación a un `request`, ligada por `correlation_id` |
-| `note` | no | Avisar de un hecho consumado |
+| `request` | yes | Ask something you need in order to continue |
+| `response` | — | Reply to a `request`, tied to it by `correlation_id` |
+| `note` | no | Announce an accomplished fact |
 
-### Estados
+### States
 
-`pending` → `delivered` (al leerse en el buzón) → `answered` (sólo `request`, al contestarse).
+`pending` → `delivered` (when read from the mailbox) → `answered` (only `request`, when replied to).
 
-Un `request` entregado pero sin responder sigue siendo recuperable con
-`?unanswered=true`: es la vía de recuperación si un agente cae antes de contestar.
+A `request` that was delivered but not answered is still recoverable with
+`?unanswered=true`: that is the recovery path if an agent dies before replying.
 
-## Endpoints REST
+## REST endpoints
 
-| Método | Ruta | Comportamiento |
+| Method | Path | Behaviour |
 |---|---|---|
-| `POST` | `/v1/requests?wait=N` | Crea la petición. Bloquea hasta la respuesta: `200` con ella, `202` con `outcome: timeout` al vencer. |
-| `GET` | `/v1/requests/{id}/response?wait=N` | Retoma la espera de una petición que ya venció. |
-| `POST` | `/v1/requests/{id}/response` | Contesta. Despierta al emisor al instante. |
-| `POST` | `/v1/notes` | Aviso sin respuesta esperada. |
-| `GET` | `/v1/inbox/{agent}?wait=N&unanswered=` | Buzón propio. `204` si no llega nada en el plazo. |
-| `GET` | `/v1/threads/{id}` | Conversación completa, en orden. |
-| `GET` | `/v1/messages/{id}` | Un mensaje concreto. |
-| `GET` | `/v1/agents` | Agentes vistos. |
-| `GET` | `/healthz` | Estado, esperas activas y agentes. Sin autenticar. |
-| `GET` | `/ui` | Panel de observación. Sin autenticar: es una página sin datos dentro. |
-| `GET` | `/v1/observe/history?limit=N&thread=` | Cola del historial más agentes y esperas. Con `thread`, sólo esa conversación. |
-| `GET` | `/v1/observe/threads?limit=N` | Índice de conversaciones, de la más reciente a la más antigua. |
-| `GET` | `/v1/observe/stream` | Flujo SSE de lo que va pasando. |
+| `POST` | `/v1/requests?wait=N` | Creates the request. Blocks until the answer: `200` with it, `202` with `outcome: timeout` when the deadline passes. |
+| `GET` | `/v1/requests/{id}/response?wait=N` | Resumes the wait on a request that already expired. |
+| `POST` | `/v1/requests/{id}/response` | Answers. Wakes the sender instantly. |
+| `POST` | `/v1/notes` | Notice with no answer expected. |
+| `GET` | `/v1/inbox/{agent}?wait=N&unanswered=` | Your own mailbox. `204` if nothing arrives within the deadline. |
+| `GET` | `/v1/threads/{id}` | The complete conversation, in order. |
+| `GET` | `/v1/messages/{id}` | One specific message. |
+| `GET` | `/v1/agents` | Agents seen. |
+| `GET` | `/healthz` | State, active waits and agents. Unauthenticated. |
+| `GET` | `/ui` | Observation panel. Unauthenticated: it is a page with no data inside. |
+| `GET` | `/v1/observe/history?limit=N&thread=` | The tail of the history plus agents and waits. With `thread`, only that conversation. |
+| `GET` | `/v1/observe/threads?limit=N` | Index of conversations, most recent first. |
+| `GET` | `/v1/observe/stream` | SSE stream of what is happening. |
 
-`wait` va en segundos y se recorta a `ARC_MAX_WAIT` (300 por defecto). `wait=0` encola y vuelve.
+`wait` is in seconds and is clamped to `ARC_MAX_WAIT` (300 by default). `wait=0` queues and returns.
 
-### Observación
+### Observation
 
-Las rutas `/v1/observe` piden `X-ARC-Token` como cualquier otra, pero **no**
-`X-ARC-Agent`: quien mira no participa, así que no tiene identidad en el canal, no
-entra en `/v1/agents` y no cambia el estado de ningún mensaje. Leer el canal entero
-es justo lo que las distingue del buzón, que sólo enseña lo propio.
+The `/v1/observe` routes ask for `X-ARC-Token` like any other, but **not**
+`X-ARC-Agent`: whoever is looking does not take part, so it has no identity on the
+channel, does not show up in `/v1/agents` and does not change the state of any message.
+Reading the whole channel is exactly what tells them apart from the mailbox, which only
+shows your own.
 
-`/v1/observe/threads` es el índice para elegir: una fila por hilo y sin cuerpos.
+`/v1/observe/threads` is the index you pick from: one row per thread, and no bodies.
 
 ```json
 {
   "thread_id": "thr_1d865fd649404bdd",
-  "subject": "Unidad del campo `total` en el endpoint de pago",
+  "subject": "Unit of the `total` field in the payment endpoint",
   "participants": ["claude-pc1", "codex-pc2"],
   "messages": 2,
   "open_requests": 0,
@@ -81,42 +82,42 @@ es justo lo que las distingue del buzón, que sólo enseña lo propio.
 }
 ```
 
-`closed` no se guarda en ninguna parte: se deriva de que no quede ninguna pregunta
-del hilo sin contestar. Por eso un hilo de puros avisos nace terminado —nadie va a
-contestar un aviso— y por eso una conversación puede volver a abrirse si alguien
-pregunta otra vez dentro de ella. El índice no viaja por el flujo: quien lo esté
-mirando lo vuelve a pedir cuando el flujo le anuncia un mensaje nuevo.
+`closed` is not stored anywhere: it is derived from there being no unanswered question
+left in the thread. That is why a thread made only of notices is born finished — nobody
+is going to answer a notice — and why a conversation can reopen if someone asks again
+inside it. The index does not travel over the stream: whoever is watching asks for it
+again when the stream announces a new message.
 
-`/v1/observe/stream` es Server-Sent Events. Tres tipos de evento:
+`/v1/observe/stream` is Server-Sent Events. Three kinds of event:
 
-| Evento | Cuándo | Contenido |
+| Event | When | Contents |
 |---|---|---|
-| `message` | Se crea un `request`, `response` o `note` | `{ "event": "message", "message": { … } }` |
-| `delivered` | Un agente lee su buzón | `{ "event": "delivered", "ids": ["req_…"] }` |
-| `state` | Cambian las esperas o los agentes | `{ "waiters": { … }, "agents": [ … ], "observers": N }` |
+| `message` | A `request`, `response` or `note` is created | `{ "event": "message", "message": { … } }` |
+| `delivered` | An agent reads its mailbox | `{ "event": "delivered", "ids": ["req_…"] }` |
+| `state` | The waits or the agents change | `{ "waiters": { … }, "agents": [ … ], "observers": N }` |
 
-Cada `data:` es una sola línea: un salto dentro partiría el evento en dos. Cuando
-no hay tráfico, el hub manda un comentario `: ping` cada dos segundos para que la
-conexión no se cierre. Un observador lento nunca frena al canal: su cola está
-acotada y descarta lo más viejo.
+Each `data:` is a single line: a newline inside it would split the event in two. When
+there is no traffic, the hub sends a `: ping` comment every two seconds so the
+connection is not closed. A slow observer never holds up the channel: its queue is
+bounded and drops the oldest.
 
-### Cuerpo de una petición
+### Body of a request
 
 ```json
 {
   "to": "codex-pc2",
-  "subject": "Contrato del endpoint de pagos",
-  "body": "¿El campo total viaja en céntimos?",
-  "refs": { "branch": "feat/pagos", "commit": "a1b2c3d", "files": ["src/pagos/Total.cs"] },
+  "subject": "Contract of the payments endpoint",
+  "body": "Does the total field travel in cents?",
+  "refs": { "branch": "feat/payments", "commit": "a1b2c3d", "files": ["src/payments/Total.cs"] },
   "thread_id": "thr_1a2b3c"
 }
 ```
 
-`refs` es un objeto JSON libre. **Manda referencias, no contenido**: ambas máquinas
-tienen un clon del mismo repositorio, así que un commit y una ruta bastan. El cuerpo
-está limitado a 256 KB y el hub rechaza lo que pase de ahí.
+`refs` is a free-form JSON object. **Send references, not content**: both machines have
+a clone of the same repository, so a commit and a path are enough. The body is limited
+to 256 KB and the hub rejects anything beyond that.
 
-### Resultado de una petición
+### Result of a request
 
 ```json
 {
@@ -127,57 +128,59 @@ está limitado a 256 KB y el hub rechaza lo que pase de ahí.
 }
 ```
 
-`outcome` es `answered`, `timeout` o `queued` (cuando se pidió `wait=0`).
+`outcome` is `answered`, `timeout` or `queued` (when `wait=0` was asked for).
 
-### Errores
+### Errors
 
-Siempre `{"error": "<código>", "detail": "<explicación>"}`:
+Always `{"error": "<code>", "detail": "<explanation>"}`:
 
-| Código | HTTP | Motivo |
+| Code | HTTP | Reason |
 |---|---|---|
-| `unauthorized` | 401 | `X-ARC-Token` ausente o incorrecto |
-| `invalid_json` | 400 | El cuerpo no se pudo leer: no es JSON válido, o no llegó como UTF-8 |
-| `bad_agent` | 422 | `X-ARC-Agent` ausente o mal formado |
-| `bad_recipient` | 422 | `to` ausente o mal formado |
-| `empty_body` | 422 | Falta el cuerpo |
-| `body_too_large` | 422 | Más de 256 KB |
-| `invalid_refs` | 422 | `refs` no es un objeto JSON válido |
-| `invalid_wait` | 422 | `wait` fuera del rango que admite el hub |
-| `self_addressed` | 422 | Un agente se escribe a sí mismo |
-| `forbidden` | 403 | Buzón ajeno, o responder algo que no va dirigido a ti |
-| `not_found` | 404 | No existe esa petición o ese hilo |
-| `already_answered` | 409 | Esa petición ya tiene respuesta |
+| `unauthorized` | 401 | `X-ARC-Token` missing or wrong |
+| `invalid_json` | 400 | The body could not be read: not valid JSON, or it did not arrive as UTF-8 |
+| `bad_agent` | 422 | `X-ARC-Agent` missing or malformed |
+| `bad_recipient` | 422 | `to` missing or malformed |
+| `empty_body` | 422 | The body is missing |
+| `body_too_large` | 422 | More than 256 KB |
+| `invalid_refs` | 422 | `refs` is not a valid JSON object |
+| `invalid_wait` | 422 | `wait` outside the range the hub accepts |
+| `self_addressed` | 422 | An agent writing to itself |
+| `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
+| `not_found` | 404 | No such request or thread |
+| `already_answered` | 409 | That request already has an answer |
 
-`400` es sólo para lo que no se pudo leer. Una petición que llegó entera y a la que
-una regla dijo que no responde `422`: así un cliente distingue un fallo suyo de
-serialización de una regla que ha incumplido, sin mirar el código.
+`400` is only for what could not be read. A request that arrived intact and that a rule
+said no to answers `422`: that way a client tells its own serialisation failure apart
+from a rule it has broken, without looking at the code.
 
 
-## Herramientas MCP
+## MCP tools
 
-En `/mcp`, transporte Streamable HTTP. Mismas operaciones, con la salida redactada
-para que la lea un modelo:
+At `/mcp`, Streamable HTTP transport. The same operations, with the output worded so a
+model can read it:
 
-| Herramienta | Qué hace |
+| Tool | What it does |
 |---|---|
-| `arc_ask` | Pregunta y espera. Bloquea hasta la respuesta o el plazo. |
-| `arc_await` | Retoma la espera de una petición que venció. |
-| `arc_inbox` | Lee tu buzón; con `wait` se queda esperando. |
-| `arc_respond` | Contesta una petición dirigida a ti. |
-| `arc_note` | Avisa sin esperar respuesta. |
-| `arc_thread` | Recupera una conversación completa. |
-| `arc_agents` | Lista quién está en el canal. |
+| `arc_ask` | Asks and waits. Blocks until the answer or the deadline. |
+| `arc_await` | Resumes the wait on a request that expired. |
+| `arc_inbox` | Reads your mailbox; with `wait` it stays waiting. |
+| `arc_respond` | Answers a request addressed to you. |
+| `arc_note` | Announces without waiting for an answer. |
+| `arc_thread` | Retrieves a complete conversation. |
+| `arc_agents` | Lists who is on the channel. |
 
-## Codificación
+## Encoding
 
-Todo es UTF-8. **En Windows, no pases cuerpos con acentos por la línea de comandos**:
-argv atraviesa la codepage ANSI y los corrompe antes de que curl los envíe. Usa
-`arc ... --body-file fichero.md`, o `--data-binary @fichero` con curl. El hub rechaza
-esos cuerpos con `invalid_json` en lugar de guardar texto roto.
+Everything is UTF-8. **On Windows, do not pass bodies with accented characters through
+the command line**: argv crosses the ANSI codepage and corrupts them before curl sends
+them. Use `arc ... --body-file file.md`, or `--data-binary @file` with curl. The hub
+rejects those bodies with `invalid_json` instead of storing broken text.
 
-## Interbloqueo
+## Deadlock
 
-Dos agentes esperándose a la vez agotan sus turnos sin avanzar. Mitigaciones:
+Two agents waiting for each other burn through their turns without progressing.
+Mitigations:
 
-- Todo `ask` lleva plazo; al vencer, la petición sigue viva y el trabajo continúa.
-- `/healthz` expone `waiters`, donde una espera mutua se ve de un vistazo.
+- Every `ask` carries a deadline; when it passes, the request stays alive and the work
+  goes on.
+- `/healthz` exposes `waiters`, where a mutual wait is visible at a glance.
