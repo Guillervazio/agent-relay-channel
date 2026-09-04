@@ -16,7 +16,9 @@ if (string.IsNullOrWhiteSpace(token) && !allowAnonymous)
         El hub acepta instrucciones entre agentes: no debe quedar abierto sin autenticar.
         Define un secreto compartido antes de arrancar:
 
-            $env:ARC_TOKEN = "<secreto>"
+            PowerShell    $env:ARC_TOKEN = "<secreto>"
+            bash          export ARC_TOKEN='<secreto>'
+            contenedor    docker run -e ARC_TOKEN='<secreto>' ...
 
         Para pruebas en local, ARC_ALLOW_ANONYMOUS=1 desactiva la comprobación
         y fuerza la escucha en loopback.

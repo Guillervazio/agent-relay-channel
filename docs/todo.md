@@ -18,7 +18,7 @@ at once, because the trigger they all named is the same: a second machine.
 | 1 | `install-hub.ps1`: the two failures found while writing `start-hub.ps1` | done | this commit |
 | 2 | The smokes say which interpreter they could not find, and find the one that exists | done | this commit |
 | 3 | `LICENSE`, and a README that says what the shared token does not protect | done | this commit |
-| 4 | `Dockerfile`: hosting the hub without Windows | pending | |
+| 4 | `Dockerfile`: hosting the hub without Windows | done | this commit |
 | 5 | `.github/workflows/`: the gate on a machine that is not this one | pending | |
 
 Phases 1 and 2 come first because they are defects that hit the first adopter, not features.
@@ -56,7 +56,7 @@ moving the narrative to [specs/](specs/) and leaving this file as it was.
 
 ## Last verified
 
-4 September 2026, at the close of phase 3:
+4 September 2026, at the close of phase 4:
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
 * `dotnet test` — **99 passed, 0 failed, 0 skipped**, 1 project
@@ -72,3 +72,6 @@ moving the narrative to [specs/](specs/) and leaving this file as it was.
   with `authenticated: true`, and `-Lan` announced `http://192.168.2.53:8799`
 * the preflight's own failure path, which is the point of it: with `python` off the `PATH`
   `smoke.sh` named the interpreter and exited **1**, and without `curl` so did `smoke-mcp.sh`
+* the container, which is the first time the hub has run outside Windows: it refused to start
+  with no `ARC_TOKEN` and said so, ran as `app` rather than root, kept the mailbox in the volume
+  across `docker rm` and a rebuild, and answered **all four suites — 66 checks — green**

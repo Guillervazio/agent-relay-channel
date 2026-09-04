@@ -7,3 +7,7 @@
 
 # scripts/ is run by bash. CRLF breaks a shebang and every heredoc in it.
 *.sh text eol=lf
+
+# El Dockerfile lo lee un demonio en Linux; CRLF le rompe la continuación de línea.
+Dockerfile text eol=lf
+.dockerignore text eol=lf

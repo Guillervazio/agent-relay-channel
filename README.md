@@ -126,6 +126,28 @@ and the hub answers `422 bad_agent`.
 
 Check the connection with `arc health`.
 
+## The hub in a container
+
+Nothing in the channel is Windows; only the hosting above is. If the machine that will hold the
+hub runs Linux, or you would rather not install a service on it, the [Dockerfile](Dockerfile)
+builds and runs it with neither the .NET SDK nor PowerShell present:
+
+```bash
+docker build -t arc-hub .
+docker run -d --name arc-hub -p 8765:8765 -v arc-data:/data            -e ARC_TOKEN='<the secret>' arc-hub
+```
+
+`ARC_TOKEN` has no default and the hub refuses to start without it, saying so — the channel
+carries instructions between agents and has no business listening unauthenticated. The mailbox
+lives in the `/data` volume rather than in the container, so recreating the container does not
+take the channel with it, and `ARC_DB` and `ARC_URLS` are already set inside the image.
+
+**One replica, one volume.** [P003](docs/adr/P003-sqlite-on-a-file.md) assumes a single process
+owning the file: two containers over the same volume is not untested, it is unsupported.
+
+The agents are configured exactly as in step 3 above, with the address of the machine running the
+container.
+
 ## Using it from an agent
 
 ### From the command line
@@ -361,6 +383,7 @@ Code and Codex CLI, both on your network.
 | [src/Arc.Cli](src/Arc.Cli) | The `arc` client |
 | [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
 | [scripts](scripts) | Starting, publishing, installation and smoke tests |
+| [Dockerfile](Dockerfile) | The hub on any machine with a container runtime |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
 | [docs/AGENTS.md](docs/AGENTS.md) | What the handshake already says, for a client that does not read it |
 

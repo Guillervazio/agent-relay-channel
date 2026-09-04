@@ -1,0 +1,14 @@
+# Lo que no tiene por qué viajar al contexto de compilación. bin/ y obj/ además
+# vienen compilados para Windows: copiarlos dentro confunde a la restauración.
+.git
+.github
+.claude
+**/bin
+**/obj
+publish
+demo
+docs
+tests
+*.db
+*.db-wal
+*.db-shm
