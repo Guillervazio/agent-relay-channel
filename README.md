@@ -238,7 +238,7 @@ mark as delivered what it displays.
 | `ARC_ALLOW_ANONYMOUS` | — | `1` disables authentication and forces listening on loopback. Testing only. |
 | `ARC_URLS` | `http://0.0.0.0:8765` | Where to listen. |
 | `ARC_DB` | `arc.db` next to the executable | SQLite file. |
-| `ARC_MAX_WAIT` | `300` | Cap in seconds per wait. |
+| `ARC_MAX_WAIT` | `300` | Cap in seconds per wait. Must be between 1 and 86400: the hub refuses to start on anything else rather than run with a cap you did not choose. |
 
 `install-hub.ps1` sets `ARC_TOKEN`, `ARC_DB` and `ARC_URLS` at the **machine** level, not the
 user level: the service does not inherit your environment.

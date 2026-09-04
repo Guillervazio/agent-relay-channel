@@ -14,7 +14,7 @@ Increment 03 — pay what the backlog says is due. Increments 01 and 02 are clos
 |---|---|---|---|
 | 1 | `PRAGMA synchronous` moves into `OpenAsync`, where every pooled connection meets it | done | this commit |
 | 2 | `WaiterRegistry` stops losing a registration to an eviction, with the test that catches it | done | this commit |
-| 3 | `ARC_MAX_WAIT` is refused at startup when it would brick the channel | not started |  |
+| 3 | `ARC_MAX_WAIT` is refused at startup when it would brick the channel | done | this commit |
 | 4 | A malformed `--refs` exits `2` instead of sending the message without it | not started |  |
 | 5 | The denylist names the uninstaller it was always meant to name | not started |  |
 
