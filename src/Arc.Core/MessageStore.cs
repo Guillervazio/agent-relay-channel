@@ -79,8 +79,16 @@ public sealed class MessageStore
         await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>Inserta la respuesta y cierra el request en la misma transacción.</summary>
-    public async Task AddResponseAsync(Message response, CancellationToken ct = default)
+    /// <summary>
+    /// Cierra el request e inserta la respuesta en la misma transacción. Devuelve
+    /// <c>false</c> si el request ya estaba respondido, sin escribir nada.
+    /// </summary>
+    /// <remarks>
+    /// El cierre va primero y lleva el estado en el WHERE, no en una comprobación
+    /// previa del llamante: dos respuestas simultáneas pasarían las dos esa
+    /// comprobación y el request acabaría con dos respuestas.
+    /// </remarks>
+    public async Task<bool> AddResponseAsync(Message response, CancellationToken ct = default)
     {
         if (response.CorrelationId is null)
         {
@@ -90,6 +98,24 @@ public sealed class MessageStore
         await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
         await using DbTransaction transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
 
+        await using (SqliteCommand update = connection.CreateCommand())
+        {
+            update.Transaction = (SqliteTransaction)transaction;
+            update.CommandText = """
+                UPDATE messages
+                   SET status = 'answered', answered_at = $answered_at
+                 WHERE id = $id AND kind = 'request' AND status <> 'answered'
+                """;
+            update.Parameters.AddWithValue("$id", response.CorrelationId);
+            update.Parameters.AddWithValue("$answered_at", Format(response.CreatedAt));
+            int closed = await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            if (closed == 0)
+            {
+                await transaction.RollbackAsync(ct).ConfigureAwait(false);
+                return false;
+            }
+        }
+
         await using (SqliteCommand insert = connection.CreateCommand())
         {
             insert.Transaction = (SqliteTransaction)transaction;
@@ -98,20 +124,8 @@ public sealed class MessageStore
             await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
-        await using (SqliteCommand update = connection.CreateCommand())
-        {
-            update.Transaction = (SqliteTransaction)transaction;
-            update.CommandText = """
-                UPDATE messages
-                   SET status = 'answered', answered_at = $answered_at
-                 WHERE id = $id AND kind = 'request'
-                """;
-            update.Parameters.AddWithValue("$id", response.CorrelationId);
-            update.Parameters.AddWithValue("$answered_at", Format(response.CreatedAt));
-            await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
-
         await transaction.CommitAsync(ct).ConfigureAwait(false);
+        return true;
     }
 
     public async Task<Message?> GetAsync(string id, CancellationToken ct = default)

@@ -124,6 +124,8 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             throw new ChannelException("forbidden", $"Esta petición va dirigida a '{request.To}'.", 403);
         }
 
+        // Comprobación temprana para no construir una respuesta que se va a tirar.
+        // No es la que decide: la que decide está en el WHERE del store.
         if (request.Status == MessageStatus.Answered)
         {
             throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
@@ -144,7 +146,11 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        await store.AddResponseAsync(response, ct);
+        if (!await store.AddResponseAsync(response, ct))
+        {
+            throw new ChannelException("already_answered", "Esa petición ya tiene respuesta.", 409);
+        }
+
         await store.TouchAgentAsync(from, null, null, sentMessage: true, ct: ct);
 
         registry.Signal(WaiterRegistry.ResponseKey(requestId), response);

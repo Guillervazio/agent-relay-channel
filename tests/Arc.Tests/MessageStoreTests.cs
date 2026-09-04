@@ -109,6 +109,47 @@ public sealed class MessageStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Dos_respuestas_simultaneas_solo_dejan_una()
+    {
+        await _store.AddAsync(Request());
+
+        Task<bool> primera = _store.AddResponseAsync(Respuesta("res_a"));
+        Task<bool> segunda = _store.AddResponseAsync(Respuesta("res_b"));
+        bool[] resultados = await Task.WhenAll(primera, segunda);
+
+        // Exactamente una gana: el estado va en el WHERE, no en una lectura previa.
+        Assert.Single(resultados, ganada => ganada);
+
+        IReadOnlyList<Message> hilo = await _store.GetThreadAsync("thr_1");
+        Assert.Single(hilo, m => m.Kind == MessageKind.Response);
+    }
+
+    [Fact]
+    public async Task Responder_dos_veces_seguidas_no_sobrescribe_la_primera()
+    {
+        await _store.AddAsync(Request());
+
+        Assert.True(await _store.AddResponseAsync(Respuesta("res_a")));
+        Assert.False(await _store.AddResponseAsync(Respuesta("res_b")));
+
+        Message? response = await _store.GetResponseForAsync("req_1");
+        Assert.Equal("res_a", response!.Id);
+    }
+
+    private static Message Respuesta(string id) => new Message
+    {
+        Id = id,
+        ThreadId = "thr_1",
+        From = "codex-pc2",
+        To = "claude-pc1",
+        Kind = MessageKind.Response,
+        Body = "Céntimos.",
+        CorrelationId = "req_1",
+        Status = MessageStatus.Pending,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    [Fact]
     public async Task Una_respuesta_necesita_a_quien_responde()
     {
         Message huerfana = new Message
