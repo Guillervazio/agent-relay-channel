@@ -162,8 +162,10 @@ Watch out for the `--wait` defaults, which are **not zero**:
 | `arc await` | waits **120 s** |
 | `arc inbox` | **does not wait**: looks and comes back |
 
-And the hub clamps whatever you ask for against its `ARC_MAX_WAIT`, 300 seconds by default:
-`--wait 600` is not an error, it waits 300. With `--wait 0` the request is queued and the
+And the hub refuses whatever exceeds its `ARC_MAX_WAIT`, 300 seconds by default:
+`--wait 600` **is an error**, not a shortened wait — the hub answers `422 invalid_wait` and
+`arc` exits `1`. A silent clamp would come back early with an `outcome` saying nothing
+happened, which is true and useless. With `--wait 0` the request is queued and the
 command returns instantly, with code `3` — there is no answer *yet*, but the request stays
 alive in the recipient's mailbox.
 
