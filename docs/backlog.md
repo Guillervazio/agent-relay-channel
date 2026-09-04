@@ -49,6 +49,11 @@ rediscovered as a bug.
   today — the registry's case is a change to the wait mechanism, not to a timestamp.
 - **The schema cannot change destructively.** `CREATE … IF NOT EXISTS` silently does nothing
   against an older table — [P007](adr/P007-the-schema-is-created-at-startup.md).
+- **Pull requests are opened by hand.** `origin` is
+  `github.com/Guillervazio/agent-relay-channel` and branches merge back through it, but `gh` is
+  not installed and neither is `winget`, so nothing here can open, review or merge one. A branch
+  is pushed from the command line and its PR is opened in the browser. This entry replaces one
+  that said the repository was local-only, which stopped being true at PR #2.
 
 ---
 
@@ -96,11 +101,6 @@ rediscovered as a bug.
   `dotnet publish src/Arc.Cli -c Release -r win-x64`, with and without.
 
 ### Housekeeping, on its own clock
-
-- **The GitHub remote.** The repository is local-only: `gh` is not installed and neither is
-  `winget`, so the private remote was not created.
-  <br>**Due when:** the repository is created on github.com and its URL is known. Then
-  `git remote add origin <url>` and `git push -u origin master`.
 
 - **The demo token.** `demo/token.txt` and the two real `.mcp.json` are gitignored and were never
   committed, so this is about rotation and not about history.
