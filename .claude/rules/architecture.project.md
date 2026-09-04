@@ -30,6 +30,12 @@ opened with `InternalsVisibleTo`. What this does not authorise: testing the CLI'
 that reference. Its `Program.cs` is top-level statements with no seam, and reaching for one would
 be a design change, not a test.
 
+`Arc.Core` opens the same door for `MessageStore.OpenAsync`, and the bar it had to clear is the one
+to apply next time: the connection's pragmas are a decision this repository records, no public
+method reveals them, and a defect in them had already survived a full increment unseen. Widening
+visibility to observe something the design deliberately hides is the case; widening it to avoid
+arranging a test is not.
+
 There is no dependency-injection container in `Arc.Core`: the hub wires it up, the CLI does not
 need one.
 

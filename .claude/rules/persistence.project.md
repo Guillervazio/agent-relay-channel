@@ -30,13 +30,18 @@ concurrent readers alongside the single writer, a durability trade that survives
 but not a power cut, and a wait rather than an immediate `SQLITE_BUSY` under contention. **None of
 them is a default, and none changes without a record.**
 
-One of the three is not actually in force, and saying so is the point of writing it down.
-`journal_mode` is stored in the file and survives; **`synchronous` is per connection and is not**.
-`InitializeAsync` emits it once, on the startup connection, so only that handle carries `NORMAL` —
-the pool reuses it, and every additional connection runs at the `FULL` default. The durability
-trade the paragraph above describes therefore varies between operations. It is recorded in
-`docs/backlog.md`; the fix is to emit the pragma per connection in `OpenAsync`, not to delete the
-sentence.
+The two pragmas are not emitted in the same place, and the difference is not stylistic.
+`journal_mode` is stored in the file, so `InitializeAsync` sets it once and every later connection
+inherits it. **`synchronous` is per connection and is not stored**, so it is emitted in `OpenAsync`,
+where every handle the pool hands out meets it. It was emitted once at startup until increment 03,
+which left every operation after the first running at the `FULL` default — the trade above was
+being made differently by different requests, and nothing said so.
+
+What this does not authorise: adding a pragma to `InitializeAsync` without checking which kind it
+is. A per-connection pragma set at startup looks correct in the diff, is silent at runtime, and no
+public surface reveals it — `ConnectionPragmaTests` exists because that combination is why the last
+one survived. It reaches `OpenAsync` through `InternalsVisibleTo`, the same door
+`Arc.Tests → Arc.Cli` already uses for `ExitCodes`.
 
 ## A write whose correctness depends on a read carries the check in the same statement
 
