@@ -17,8 +17,10 @@ One row, one project referencing `Microsoft.NET.Test.Sdk`. Complete.
 
 ## The four categories, here
 
-Only two of the base's four exist. **Unit** is `WaiterRegistryTests`. **Persistence** is
-`MessageStoreTests`, against the engine ARC ships rather than a substitute.
+Only two of the base's four exist. **Unit** is `WaiterRegistryTests` and `ArcErrorsTests`.
+**Persistence** is `MessageStoreTests`, against the engine ARC ships rather than a substitute.
+`ClockTests` spans both: it drives the real channel and the real store, and its subject is what a
+fake clock made assertable.
 
 `ChannelServiceTests` is the **integration** row in spirit: the rules of the channel against the
 real store on a temporary file and the real waiter registry, with nothing substituted. It is
@@ -52,25 +54,29 @@ engine configuration with different locking, and it is the thing H008 names.
 Replaces the base clause under *Tools*: "FluentAssertions for assertions. NSubstitute for
 substitutes … `FakeTimeProvider` for time."
 
-ARC uses `Assert`, no substitute library, and no `TimeProvider`. Each has its own reason and none
-of them is preference:
+ARC uses `Assert` and no substitute library. `FakeTimeProvider` is the one part of the clause this
+repository keeps rather than replaces. Each has its own reason and none of them is preference:
 
 * **Assertions.** FluentAssertions 8 is not free for commercial use, and adding version 7 to reach
   a fluent syntax is a package approval bought with nothing. `Assert.Equal` says the same thing.
 * **Substitutes.** There is nothing to substitute. `Arc.Core` has **zero** interfaces, which is
   [H002](../../docs/adr/house/H002-single-implementation-interfaces.md) satisfied by absence, and
   the store under test is the real one on a temporary file.
-* **Time.** `FakeTimeProvider` needs an injected `TimeProvider`, which ARC does not have yet. This
-  half is a gap rather than a deviation: it is owed work, and it is why `WaiterRegistryTests`
-  measures real elapsed milliseconds and is the part of this suite most exposed to a slow machine.
+* **Time.** No longer a deviation at all. `Microsoft.Extensions.TimeProvider.Testing` is approved
+  for this project, and `ClockTests` uses `FakeTimeProvider` to pin the exact instant each surface
+  writes. The approval buys the double and nothing else: `TimeProvider` itself is in the BCL.
 
-What this does not authorise: asserting against the real clock once a `TimeProvider` exists.
+What this does not authorise: a tolerance around `DateTimeOffset.UtcNow` in a new test. An instant
+the channel writes is now assertable exactly, and a test that compares against the real clock is
+asserting that the injection did not happen. The one place still measuring real elapsed
+milliseconds is `WaiterRegistryTests`, whose waits are `Task.Delay` — that is a change to the wait
+mechanism, it is in `docs/backlog.md` with its trigger, and it is a precedent for nothing.
 
 ### Test names are in Spanish
 
 Replaces the base clause under *Naming and shape*: `MethodName_Should_ExpectedBehaviour_When_Condition`.
 
-The 44 existing tests read `Una_senal_previa_a_la_espera_no_se_pierde`. They say the same thing
+The 49 existing tests read `Una_senal_previa_a_la_espera_no_se_pierde`. They say the same thing
 the pattern asks for — subject, expected behaviour, condition — in the language the rest of this
 repository's prose is written in. Renaming them buys a shape and loses a sentence.
 

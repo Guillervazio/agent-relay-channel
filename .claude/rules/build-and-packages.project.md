@@ -35,8 +35,9 @@ with nothing to bind to is not being departed from:
 | `xunit` | Arc.Tests | The test framework |
 | `xunit.runner.visualstudio` | Arc.Tests | VSTest discovery for xunit v2 |
 | `coverlet.collector` | Arc.Tests | Coverage collection. **Nothing reads its output today** — see `docs/backlog.md` |
+| `Microsoft.Extensions.TimeProvider.Testing` | Arc.Tests | `FakeTimeProvider`, and only that. `TimeProvider` itself is in the BCL — verified by compiling against it with no reference — so **no production project takes this** |
 
-Seven rows against seven `PackageVersion` entries in `Directory.Packages.props`. Complete.
+Eight rows against eight `PackageVersion` entries in `Directory.Packages.props`. Complete.
 
 `Arc.Cli` has no packages at all: it is `System.Net.Http` and a project reference.
 
@@ -44,7 +45,7 @@ Seven rows against seven `PackageVersion` entries in `Directory.Packages.props`.
 
 | Package | Reason it was refused |
 |---|---|
-| `FluentAssertions` | Version 8 changed to a licence that is not free for commercial use. The base names `Assert` as the fallback and all 44 existing tests already use it |
+| `FluentAssertions` | Version 8 changed to a licence that is not free for commercial use. The base names `Assert` as the fallback and all 49 existing tests already use it |
 | `Swashbuckle` / `NSwag` | ARC publishes `docs/PROTOCOL.md` as its contract and has no generated OpenAPI document. A second, generated description of the same wire is a second thing to keep true |
 
 ## Pinned

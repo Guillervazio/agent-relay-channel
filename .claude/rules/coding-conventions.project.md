@@ -48,10 +48,23 @@ it holds a store, a registry and an event stream, so it is a class and it is inj
 
 ## Time
 
-The base requires an injected `TimeProvider`. ARC does not have one yet: `DateTimeOffset.UtcNow`
-is read directly in `ChannelService`, `MessageStore` and `Arc.Hub/Program.cs`. That is a **gap,
-not a deviation** — it is work owed, listed in `docs/backlog.md`, and it is why no test here can
-assert on a timestamp without a tolerance.
+The base's injected `TimeProvider` is in force for every instant the channel **writes**:
+`ChannelService`, `MessageStore`, `EventStream` and the hub take it as a constructor parameter
+defaulting to `TimeProvider.System`, and the hub registers the one singleton all four share.
+`DateTimeOffset.UtcNow` must not reappear in any of them.
+
+The default argument is what let the injection land without editing a single call site, and it is
+**not** a licence to leave a new dependency optional. It is here because the alternative was a
+required parameter in forty-four test constructions, which would have destroyed the evidence that
+the refactor moved no behaviour. A dependency with real alternatives is required.
+
+`ChannelEvent.At` is `required` for the same reason, and it is the shape to copy: a property
+defaulted to `DateTimeOffset.UtcNow` is a second clock inside the type, unreachable from the
+injected one, which makes the injection true of the code and false of the behaviour.
+
+Two readers of the real clock survive on purpose, both in `docs/backlog.md` with what makes them
+due: `WaiterRegistry`, whose waits are `Task.Delay` and so need the wait mechanism changed rather
+than a timestamp, and `Arc.Cli`, which has no composition root to inject anything into.
 
 ## Deviations
 

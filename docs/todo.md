@@ -1,61 +1,44 @@
 # Current work
 
-Increment 02 — make the code obey what the rules say. Increment 01 is closed in
-[specs/01-arc-adopts-the-house-doctrine.md](specs/01-arc-adopts-the-house-doctrine.md).
+Increment 03 — pay what the backlog says is due. Increments 01 and 02 are closed in
+[specs/](specs/).
 
-**Last verified** (4 September 2026):
+**Last verified** (4 September 2026, at the close of increment 02):
 
-* `dotnet restore --force` clean across 4 projects
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
-* `dotnet test` — **44 passed, 0 failed, 0 skipped**, 1 project (was 21 at the start of this increment)
+* `dotnet test` — **49 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
-* `bash scripts/test-all.sh` — **four suites green, 61 checks**
-* `stop-gate.ps1` invoked directly: **exit 2** on a broken build, **exit 0** restored
+* `bash scripts/test-all.sh` — **four suites green, 61 checks** (24 REST, 12 CLI, 14 MCP, 11 UI)
 
 | # | Phase | Status | Commit |
 |---|---|---|---|
-| 1 | H007: the status moves into the `WHERE`; two concurrent responders, one wins | done | `aeef227` |
-| 2 | H012: one `ArcErrors`; tests that freeze the literals and one that discovers divergence | done | `45c4f48` |
-| 3 | H013: seven codes to 422, `invalid_json` keeps 400, `PROTOCOL.md` and the smokes in the same commit | done | `661d574` |
-| 4 | `ValidateWait` refuses instead of clamping, and refuses **before** creating anything | done | `661d574` |
-| 5 | `TimeProvider` injected into `ChannelService` and the hub's two timestamps | **not started** |  |
-| 6 | Tests for `ChannelService` | done | `ae9757a` |
-| 7 | The rules and the published contract say what the code does | done | this commit |
+| 1 | `PRAGMA synchronous` moves into `OpenAsync`, where every pooled connection meets it | not started |  |
+| 2 | `WaiterRegistry` stops losing a registration to an eviction, with the test that catches it | not started |  |
+| 3 | `ARC_MAX_WAIT` is refused at startup when it would brick the channel | not started |  |
+| 4 | A malformed `--refs` exits `2` instead of sending the message without it | not started |  |
+| 5 | The denylist names the uninstaller it was always meant to name | not started |  |
 
-Every phase is closed in the same commit that updates its row.
-
----
-
-## What phase 5 has to do
-
-`DateTimeOffset.UtcNow` is read directly in `ChannelService`, `MessageStore` and
-`Arc.Hub/Program.cs`. Until it is injected, no test can control time, and
-`WaiterRegistryTests` and `ChannelServiceTests` both measure real elapsed milliseconds — which is
-the part of the suite most exposed to a slow machine.
-
-It needs one package approval, for `Microsoft.Extensions.TimeProvider.Testing`, and the appendix
-table updated in the same change.
+Every phase is closed in the same commit that updates its row, and each one leaves
+[backlog.md](backlog.md) as it is fixed.
 
 ---
 
-## What phase 7 found and did not fix
+## Why these five and not the other seven
 
-Phase 7 was the mirror of this increment's title: instead of making the code obey the rules, it
-made the rules and the two public documents describe the code. The prose was wrong in ten places,
-including a `README.md` sentence promising that `--wait 600` "is not an error, it waits 300" —
-false since phase 4, and carried into English intact by the translation.
+The backlog carries twelve findings. These are the five whose written trigger is **now** — four on
+merit and one by hand — and nothing else in the file is due. The seven that stay are not smaller;
+they are waiting on evidence that has not arrived: a note actually going missing, somebody needing
+to know whether `note`-to-self is legal, a `/v2` that could remove a published enum value.
 
-It also found nine defects in the code and **fixed none of them**, by scope. They are in
-[backlog.md](backlog.md) with a trigger each. Four are marked due now on merit: the `synchronous`
-pragma that is not in force, the `WaiterRegistry` race that can orphan a waiter, the CLI
-discarding a malformed `--refs` in silence, and `ARC_MAX_WAIT` accepting a value that bricks the
-hub.
+Two of the five are one-line fixes with an outsized failure mode. The `synchronous` pragma is
+emitted once, on the initialising connection, and the pragma is per connection: every operation
+after startup runs at a durability setting the rules call a decision and nobody chose. The
+`WaiterRegistry` race is narrow — a `Register` landing between the emptiness check and the eviction
+— but it opens on the ordinary polling pattern, and the class whose tests exist to catch exactly
+this kind of fault has no test for it.
 
----
+## What phase 4 owes the increment after it
 
-Two things are owed that are not phases, because they are not code:
-
-* **The GitHub remote.** `gh` is not installed; the repository is local-only.
-* **The `.claude/settings.json` denylist**, which names a pattern that matches nothing.
-
-Both are in [backlog.md](backlog.md) with what makes them due.
+`Arc.Cli` has no unit test to assert an exit code with, so phase 4's fix is covered by
+`scripts/smoke-cli.sh` and by nothing a gate runs. The seam that would fix that is increment 04,
+and the test moves there with it rather than waiting for it here.
