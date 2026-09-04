@@ -44,8 +44,12 @@ rediscovered as a bug.
   never a dishonest one.
 - **One hub, one file.** [P003](adr/P003-sqlite-on-a-file.md) assumes a single process owning the
   database. Two hubs over a share is not supported and is not merely untested.
-- **No `TimeProvider`.** `DateTimeOffset.UtcNow` is read directly in three places, so no test can
-  control time and `WaiterRegistryTests` measures real elapsed milliseconds.
+- **`WaiterRegistry` and `Arc.Cli` still read the real clock.** Everything the channel *writes* now
+  dates itself from an injected `TimeProvider`, but the registry waits on `Task.Delay` and the CLI
+  measures elapsed time for its progress line, so `WaiterRegistryTests` still measures real
+  milliseconds and is the part of the suite most exposed to a slow machine.
+  <br>**Due when:** that suite fails on timing, or the CLI gets the composition root it has none of
+  today — the registry's case is a change to the wait mechanism, not to a timestamp.
 - **The schema cannot change destructively.** `CREATE … IF NOT EXISTS` silently does nothing
   against an older table — [P007](adr/P007-the-schema-is-created-at-startup.md).
 
