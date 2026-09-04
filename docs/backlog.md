@@ -75,16 +75,15 @@ rediscovered as a bug.
   one machine.
   <br>**Due when:** a restore on a second machine resolves a different version than this one.
 
-- **Three of the four surfaces have no unit test at all.** `Arc.Hub/Program.cs`,
-  `Arc.Hub/ArcTools.cs` and `Arc.Cli/Program.cs` are 1,144 lines with zero xunit coverage: the
-  401, the `bad_agent` 422, the 200-versus-202 mapping, the empty mailbox's 204 and every MCP
-  tool are exercised only by `scripts/test-all.sh`, which no gate runs. `EventStream` has none
-  either, and `ChannelServiceTests` builds the service **without** one, so the publish branches
-  never execute — which leaves `PROTOCOL.md`'s `delivered` event, its two-second `: ping` and its
-  `DropOldest` promise asserted by nothing anywhere.
-  <br>**Due when:** a defect reaches a commit in one of those files, or the smokes stop being run
-  by hand. Note that the hub and CLI are top-level statements with no seam, so this is a design
-  question before it is a testing one.
+- **The observer's stream is still only covered by a bash script.** Increment 04 gave the three
+  surfaces xunit coverage, but `/v1/observe/stream` is not among it: `HubEndpointTests` asserts the
+  routes that answer and return, and the SSE endpoint answers by not returning. `smoke-ui.sh`
+  drives it against a real hub — the `message` and `state` events, and a body arriving intact —
+  and `EventStreamTests` covers the queue behind it, but nothing in the fast gate asserts the
+  two-second `: ping` or that a dropped connection disposes its subscription.
+  <br>**Due when:** a change to the stream's framing or its heartbeat, or an observer reporting a
+  stall. The shape it needs is a test that reads a bounded prefix of the response body rather than
+  awaiting the whole of it.
 
 - **Nothing exercises a wait past the derived `KeepAliveTimeout`.** The longest smoke waits 60
   seconds against a keep-alive of `ARC_MAX_WAIT + 60`.

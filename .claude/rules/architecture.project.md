@@ -18,17 +18,28 @@ in `docs/backlog.md` and belongs to the package, not to this repository.
 Arc.Cli  → Arc.Core
 Arc.Hub  → Arc.Core
 Arc.Core → the BCL and Microsoft.Data.Sqlite, and nothing else
-Arc.Tests → Arc.Core, Arc.Cli
+Arc.Tests → Arc.Core, Arc.Cli, Arc.Hub
 ```
 
 `Arc.Core` never references `Arc.Hub` or `Arc.Cli`, and neither surface references the other.
 
-`Arc.Tests → Arc.Cli` is the one edge that is not a surface pointing at the core, and it exists for
-exactly one reason: `ExitCodes` is published contract and a test freezes its numbers
-([P009](../../docs/adr/P009-the-cli-exit-codes-are-contract.md)). The class stays `internal`,
-opened with `InternalsVisibleTo`. What this does not authorise: testing the CLI's behaviour through
-that reference. Its `Program.cs` is top-level statements with no seam, and reaching for one would
-be a design change, not a test.
+`Arc.Tests → Arc.Cli` and `Arc.Tests → Arc.Hub` are the two edges that are not a surface pointing
+at the core. Both exist so the suite can reach a surface's composition root, and both surfaces have
+one because increment 04 built them:
+
+* **`HubApp.BuildAsync(HubOptions)`** returns the assembled `WebApplication`. Its
+  `configureWebHost` parameter is where a test swaps the server for an in-memory one.
+* **`CliRunner`** takes its output, error and input streams by constructor and an optional
+  `HttpMessageHandler` by parameter.
+
+`Program.cs` on each side keeps only what has no seam and needs none: read the environment, refuse
+it if it will not work, run. **Neither is a place to put a decision.** A rule that lands in
+`Program.cs` is a rule no test can reach, which is the state this increment ended.
+
+`ExitCodes` and `ArcTools.AgentKey` stay `internal`, opened with `InternalsVisibleTo` — the exit
+codes because they are published contract a test freezes
+([P009](../../docs/adr/P009-the-cli-exit-codes-are-contract.md)), the key so the test uses the
+middleware's own constant rather than a second copy of the literal.
 
 `Arc.Core` opens the same door for `MessageStore.OpenAsync`, and the bar it had to clear is the one
 to apply next time: the connection's pragmas are a decision this repository records, no public
@@ -90,9 +101,9 @@ constraint while the real store runs on a temporary file in one millisecond.
 | A rule of the channel | `Arc.Core/ChannelService.cs` |
 | SQL, and only SQL | `Arc.Core/MessageStore.cs` |
 | Waiting, waking, cancelling | `Arc.Core/WaiterRegistry.cs`, `Arc.Core/EventStream.cs` |
-| An HTTP endpoint | `Arc.Hub/Program.cs` |
+| An HTTP endpoint | `Arc.Hub/HubApp.cs` |
 | An MCP tool | `Arc.Hub/ArcTools.cs` |
-| A CLI subcommand | `Arc.Cli/Program.cs` |
+| A CLI subcommand | `Arc.Cli/CliRunner.cs` |
 
 The folder tree is not written down here. `Arc.slnx` and a directory listing describe it better
 and do not go stale.

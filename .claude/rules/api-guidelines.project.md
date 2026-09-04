@@ -66,7 +66,7 @@ mistyped their own name.
 One definition, and a test spells the literal rather than referencing the constant —
 [H012](../../docs/adr/house/H012-an-error-code-is-defined-once-and-a-test-keeps-the-literal.md).
 ARC satisfies both halves. `Arc.Core/ArcErrors.cs` is the one definition; `ChannelService`,
-`Arc.Hub/Program.cs` and `ArcTools` reference it. `ArcErrorsTests` freezes all twelve literals,
+`Arc.Hub/HubApp.cs` and `ArcTools` reference it. `ArcErrorsTests` freezes all twelve literals,
 and a second test reflects over `ArcErrors` and fails if one is missing from the table in
 `docs/PROTOCOL.md`, which stays the published copy.
 

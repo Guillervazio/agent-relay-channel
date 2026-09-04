@@ -2,7 +2,7 @@
 paths:
   - "src/Arc.Core/WaiterRegistry.cs"
   - "src/Arc.Core/EventStream.cs"
-  - "src/Arc.Hub/Program.cs"
+  - "src/Arc.Hub/HubApp.cs"
 ---
 
 # Concurrency and long polling — this project
@@ -57,7 +57,7 @@ does not leak a queue.
 
 ## Kestrel's tuning is correctness, not tuning
 
-Three settings in `Arc.Hub/Program.cs`, each **derived** from something and never set
+Three settings in `Arc.Hub/HubApp.cs`, each **derived** from something and never set
 independently of it:
 
 | Setting | Derived from | What breaks otherwise |
