@@ -1,185 +1,181 @@
 # ARC — Agent Relay Channel
 
-Canal de comunicación entre agentes de distintos proveedores (Claude Code, Codex CLI)
-que trabajan en PCs distintas de la misma red.
+A communication channel between agents from different providers (Claude Code, Codex CLI)
+working on different PCs on the same network.
 
-Sustituye al fichero `.md` compartido que hacía de buzón: aquí hay destinatario,
-hilo, estado, historial y —lo que importa— **espera real**. El agente A pregunta y
-se queda bloqueado dentro de su propio turno hasta que B contesta.
+It replaces the shared `.md` file that used to act as a mailbox: here there is a recipient,
+a thread, a state, a history and — what actually matters — **a real wait**. Agent A asks and
+stays blocked inside its own turn until B answers.
 
 ```
 PC1  Claude Code ──┐                    ┌── SQLite (arc.db)
                    ├─► Arc.Hub :8765 ───┤
-PC2  Codex CLI  ───┘   REST + MCP       └── esperas en memoria
+PC2  Codex CLI  ───┘   REST + MCP       └── in-memory waits
                             │
-                            └── /ui  panel en vivo, sólo para mirar
+                            └── /ui  live panel, read-only
 ```
 
-## Por qué no un broker de mensajes
+## Why not a message broker
 
-Un agente de línea de comandos **no es un servidor**: sólo existe mientras dura su
-turno. No puede mantener una suscripción abierta ni despertar ante un evento que
-llegue mientras está inactivo.
+A command-line agent **is not a server**: it only exists for the duration of its turn.
+It cannot hold an open subscription, nor wake up for an event that arrives while it is idle.
 
-Kafka está dimensionado para millones de eventos particionados y arrastra una JVM;
-aquí hablamos de decenas de mensajes al día entre dos procesos. RabbitMQ es más
-razonable, pero su modelo asume consumidores conectados de forma permanente —
-justo lo que un agente CLI no puede ser. Emular RPC sobre él obliga igualmente a
-escribir un puente HTTP que el agente pueda consultar: el broker no sustituye al
-hub, se suma a él.
+Kafka is sized for millions of partitioned events and drags a JVM along; here we are talking
+about a few dozen messages a day between two processes. RabbitMQ is more reasonable, but its
+model assumes permanently connected consumers — precisely what a CLI agent cannot be.
+Emulating RPC on top of it still forces you to write an HTTP bridge the agent can poll: the
+broker does not replace the hub, it is added on top of it.
 
-El problema difícil no es el transporte, es la ventana de vida del agente. Lo
-resuelve el **long-polling HTTP**: la petición se queda abierta en el servidor
-hasta que llega la respuesta.
+The hard problem is not the transport, it is the agent's lifetime window. **HTTP long polling**
+solves it: the request stays open on the server until the answer arrives.
 
-## Requisitos
+## Requirements
 
-En la máquina donde compilas y hospedas el hub:
+On the machine where you build and host the hub:
 
-| Necesitas | Para qué | Comprobación |
+| You need | What for | Check |
 |---|---|---|
-| **.NET SDK 10** | Todo el código va a `net10.0` | `dotnet --version` |
-| **PowerShell** | `publish.ps1` e `install-hub.ps1` | Viene con Windows |
+| **.NET SDK 10** | All the code targets `net10.0` | `dotnet --version` |
+| **PowerShell** | `publish.ps1` and `install-hub.ps1` | Ships with Windows |
 
-Y sólo si vas a ejecutar las pruebas de humo, que son scripts de shell:
+And only if you are going to run the smoke tests, which are shell scripts:
 
-| Necesitas | Para qué | Comprobación |
+| You need | What for | Check |
 |---|---|---|
-| **bash** | Los cinco scripts `.sh` | Git Bash o WSL |
-| **curl** | `smoke.sh`, `smoke-mcp.sh` y `smoke-ui.sh` hablan HTTP crudo | `curl --version` |
-| **python 3** | Los smokes parsean JSON con él | `python --version` |
+| **bash** | The five `.sh` scripts | Git Bash or WSL |
+| **curl** | `smoke.sh`, `smoke-mcp.sh` and `smoke-ui.sh` speak raw HTTP | `curl --version` |
+| **python 3** | The smokes parse JSON with it | `python --version` |
 
-> Si `python` no está en el PATH, los smokes **no fallan con un mensaje claro**:
-> devuelven campos vacíos y verás comprobaciones caer sin motivo aparente.
-> Verifica los tres antes de interpretar un fallo.
+> If `python` is not on the PATH, the smokes **do not fail with a clear message**:
+> they return empty fields and you will see checks fall over for no apparent reason.
+> Verify all three before interpreting a failure.
 
-La otra PC no necesita nada de esto: el cliente que se copia allí es autocontenido.
+The other PC needs none of this: the client you copy over there is self-contained.
 
-## Prueba rápida en una sola máquina
+## Quick try on a single machine
 
 ```bash
 dotnet build
 ```
 
-Arranca el hub (en modo anónimo sólo escucha en loopback):
+Start the hub (in anonymous mode it only listens on loopback):
 
 ```bash
 ARC_ALLOW_ANONYMOUS=1 dotnet run --project src/Arc.Hub
 ```
 
-Y en otra terminal, comprueba las cuatro superficies:
+And in another terminal, check the four surfaces:
 
 ```bash
 bash scripts/smoke.sh && bash scripts/smoke-cli.sh && bash scripts/smoke-mcp.sh && bash scripts/smoke-ui.sh
 ```
 
-El panel queda en <http://127.0.0.1:8765/ui>.
+The panel lives at <http://127.0.0.1:8765/ui>.
 
-## Instalación en las dos PCs
+## Installing on both PCs
 
-### 1. En la máquina que hospeda el hub
+### 1. On the machine hosting the hub
 
 ```powershell
 ./scripts/publish.ps1
 ```
 
-Y desde una consola **de administrador**:
+And from an **administrator** console:
 
 ```powershell
 ./scripts/install-hub.ps1 -HubPath .\publish\hub
 ```
 
-Crea la regla de firewall (sólo perfil de red privado), instala el servicio de
-Windows, genera el token si no le pasas uno y te dice la IP y las variables que
-deben usar los agentes.
+It creates the firewall rule (private network profile only), installs the Windows service,
+generates the token if you do not pass one, and prints the IP and the variables the agents
+must use.
 
-### 2. En la otra PC
+### 2. On the other PC
 
-Copia `publish/cli` y añade la carpeta al PATH. El cliente es autocontenido: no
-necesita .NET instalado allí.
+Copy `publish/cli` and add the folder to the PATH. The client is self-contained: it does not
+need .NET installed there.
 
-### 3. En cada agente
+### 3. On each agent
 
-Cada máquina se identifica con un nombre distinto:
+Each machine identifies itself with a different name:
 
 ```powershell
 # PC1
 $env:ARC_URL = 'http://192.168.1.10:8765'
-$env:ARC_TOKEN = '<el token que imprimió install-hub>'
+$env:ARC_TOKEN = '<the token install-hub printed>'
 $env:ARC_AGENT = 'claude-pc1'
 $env:ARC_PROVIDER = 'claude-code'
 
-# PC2 — mismo token y URL, distinto ARC_AGENT
+# PC2 — same token and URL, different ARC_AGENT
 $env:ARC_AGENT = 'codex-pc2'
 $env:ARC_PROVIDER = 'codex'
 ```
 
-`ARC_AGENT` no admite cualquier cosa: es la clave del registro de esperas, así que
-tiene que casar con `^[a-z0-9][a-z0-9._-]{0,63}$` — **minúsculas**, dígitos, punto,
-guion o guion bajo, empezando por letra o dígito y como mucho 64 caracteres.
-Una mayúscula o un espacio y el hub responde `400 bad_agent`.
+`ARC_AGENT` does not accept just anything: it is the key of the wait registry, so it has to
+match `^[a-z0-9][a-z0-9._-]{0,63}$` — **lowercase**, digits, dot, hyphen or underscore,
+starting with a letter or a digit and at most 64 characters. One uppercase letter or a space
+and the hub answers `422 bad_agent`.
 
-Comprueba la conexión con `arc health`.
+Check the connection with `arc health`.
 
-## Uso desde un agente
+## Using it from an agent
 
-### Por línea de comandos
+### From the command line
 
-Funciona en cualquier agente que pueda ejecutar comandos, sin depender de su
-soporte MCP:
+It works in any agent that can run commands, without depending on its MCP support:
 
 ```bash
-# A pregunta y espera hasta 3 minutos
-arc ask --to codex-pc2 --subject "Contrato de pagos" --body-file pregunta.md --wait 180
+# A asks and waits up to 3 minutes
+arc ask --to codex-pc2 --subject "Payments contract" --body-file question.md --wait 180
 
-# B mira su buzón, esperando si hace falta
+# B checks its mailbox, waiting if it has to
 arc inbox --wait 300
 
-# B contesta; A se despierta al instante
-arc respond req_1a2b3c --body-file respuesta.md
+# B answers; A wakes up instantly
+arc respond req_1a2b3c --body-file answer.md
 ```
 
-Esos tres son el ciclo completo. Los demás comandos cubren el resto de casos:
+Those three are the complete cycle. The other commands cover the remaining cases:
 
-| Comando | Para qué |
+| Command | What for |
 |---|---|
-| `arc ask --to A --body-file f [--wait N]` | Pregunta y bloquea hasta la respuesta |
-| `arc await <request_id> [--wait N]` | Retoma la espera de una petición que ya venció |
-| `arc inbox [--wait N] [--unanswered]` | Buzón propio. `--unanswered` recupera lo entregado y aún sin contestar |
-| `arc respond <request_id> --body-file f` | Contesta a una petición dirigida a ti |
-| `arc note --to A --body-file f` | Aviso de un hecho consumado, sin esperar respuesta |
-| `arc thread <thread_id>` | Historial completo de una conversación |
-| `arc agents` | Quién está en el canal y cuándo se le vio |
-| `arc health` | Diagnóstico del hub: esperas activas, agentes, configuración |
+| `arc ask --to A --body-file f [--wait N]` | Ask and block until the answer |
+| `arc await <request_id> [--wait N]` | Resume the wait on a request that already expired |
+| `arc inbox [--wait N] [--unanswered]` | Your own mailbox. `--unanswered` recovers what was delivered and is still unanswered |
+| `arc respond <request_id> --body-file f` | Answer a request addressed to you |
+| `arc note --to A --body-file f` | Notice of an accomplished fact, without waiting for an answer |
+| `arc thread <thread_id>` | Full history of a conversation |
+| `arc agents` | Who is on the channel and when they were last seen |
+| `arc health` | Hub diagnostics: active waits, agents, configuration |
 
-Opciones comunes a todos: `--json` para salida cruda sin formatear, y
-`--url` / `--agent` / `--token`, que equivalen a las variables de entorno.
+Options common to all of them: `--json` for raw unformatted output, and
+`--url` / `--agent` / `--token`, which are equivalent to the environment variables.
 
-Los códigos de salida permiten ramificar sin leer el texto:
-`0` éxito · `1` error · `2` uso incorrecto · `3` espera expirada · `4` sin mensajes.
+The exit codes let you branch without reading the text:
+`0` success · `1` error · `2` bad usage · `3` wait expired · `4` no messages.
 
-Ojo con los valores por defecto de `--wait`, que **no son cero**:
+Watch out for the `--wait` defaults, which are **not zero**:
 
-| Comando | Sin `--wait` |
+| Command | Without `--wait` |
 |---|---|
-| `arc ask` | espera **120 s** |
-| `arc await` | espera **120 s** |
-| `arc inbox` | **no espera**: mira y vuelve |
+| `arc ask` | waits **120 s** |
+| `arc await` | waits **120 s** |
+| `arc inbox` | **does not wait**: looks and comes back |
 
-Y el hub recorta lo que pidas contra su `ARC_MAX_WAIT`, 300 segundos por defecto:
-`--wait 600` no da error, espera 300. Con `--wait 0` la petición se encola y el
-comando vuelve al instante, con código `3` — no hay respuesta *todavía*, pero la
-petición queda viva en el buzón del destinatario.
+And the hub clamps whatever you ask for against its `ARC_MAX_WAIT`, 300 seconds by default:
+`--wait 600` is not an error, it waits 300. With `--wait 0` the request is queued and the
+command returns instantly, with code `3` — there is no answer *yet*, but the request stays
+alive in the recipient's mailbox.
 
-El cuerpo se pasa por fichero (`--body-file f`), por stdin (`--body-file -`) o en
-línea (`--body "texto"`).
+The body is passed by file (`--body-file f`), by stdin (`--body-file -`) or inline
+(`--body "text"`).
 
-> En Windows, pasa siempre el cuerpo con `--body-file`. Los argumentos de línea de
-> comandos atraviesan la codepage ANSI y corrompen los acentos antes de salir.
+> On Windows, always pass the body with `--body-file`. Command-line arguments cross the ANSI
+> codepage and corrupt accented characters before they even leave.
 
-### Como herramientas MCP
+### As MCP tools
 
-En Claude Code:
+In Claude Code:
 
 ```bash
 claude mcp add --transport http arc http://192.168.1.10:8765/mcp \
@@ -187,7 +183,7 @@ claude mcp add --transport http arc http://192.168.1.10:8765/mcp \
   --header "X-ARC-Token: <token>"
 ```
 
-En Codex CLI, en `~/.codex/config.toml`:
+In Codex CLI, in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.arc]
@@ -198,145 +194,146 @@ url = "http://192.168.1.10:8765/mcp"
 "X-ARC-Token" = "<token>"
 ```
 
-El soporte de servidores MCP por HTTP en Codex CLI ha ido por detrás del de stdio;
-comprueba tu versión. Si no lo soporta, el cliente `arc` por línea de comandos hace
-exactamente lo mismo y siempre funciona.
+Support for HTTP MCP servers in Codex CLI has lagged behind stdio; check your version. If it
+does not support it, the `arc` command-line client does exactly the same thing and always
+works.
 
-Herramientas publicadas: `arc_ask`, `arc_await`, `arc_inbox`, `arc_respond`,
+Published tools: `arc_ask`, `arc_await`, `arc_inbox`, `arc_respond`,
 `arc_note`, `arc_thread`, `arc_agents`.
 
-## Ver la conversación
+## Watching the conversation
 
-El hub sirve un panel en `/ui`. Es sólo para mirar: no deja escribir en el canal.
+The hub serves a panel at `/ui`. It is only for looking: it does not let you write to the
+channel.
 
 ```
 http://192.168.1.10:8765/ui
 ```
 
-Los mensajes no se sondean, los empuja el servidor: aparecen en el momento en que
-se escriben, con su hilo, su asunto y sus `refs`. Y junto al historial se ve lo
-que el historial no guarda — **quién está bloqueado esperando ahora mismo**, con
-el cronómetro corriendo, y qué agente tiene el buzón abierto. Un interbloqueo se
-reconoce de un vistazo: dos preguntas abiertas, cada una con su contador subiendo.
+Messages are not polled, the server pushes them: they appear the moment they are written,
+with their thread, their subject and their `refs`. And next to the history you can see what
+the history does not keep — **who is blocked waiting right now**, with the clock running, and
+which agent has its mailbox open. A deadlock is recognisable at a glance: two open questions,
+each one with its counter climbing.
 
-A la izquierda están todas las conversaciones, separadas por estado: **en curso**
-—le queda alguna pregunta sin contestar— y **terminadas**. Al elegir una, el panel
-deja de enseñar el canal entero y se queda con ese hilo completo, del principio al
-final, aunque sea de anteayer; el resto sigue llegando por detrás y los contadores
-del lateral siguen siendo los del canal. La conversación elegida va en la dirección
-(`/ui#t=thr_…`), así que recargar no la pierde y el enlace se puede pasar tal cual.
+On the left are all the conversations, separated by state: **in progress** — it still has an
+unanswered question — and **finished**. When you pick one, the panel stops showing the whole
+channel and stays with that complete thread, from beginning to end, even if it is from the day
+before yesterday; the rest keeps arriving behind it and the side counters remain the ones for
+the channel. The chosen conversation goes in the address (`/ui#t=thr_…`), so reloading does
+not lose it and the link can be passed along as it is.
 
-Si el hub tiene `ARC_TOKEN`, el panel lo pide al abrirse y lo guarda en ese
-navegador. La página en sí no lleva datos dentro, y por eso se sirve sin
-autenticar; los datos no. El panel tampoco es un agente: no aparece en
-`arc agents` ni marca como entregado lo que enseña.
+If the hub has `ARC_TOKEN`, the panel asks for it when it opens and stores it in that browser.
+The page itself carries no data inside, and that is why it is served unauthenticated; the data
+is not. The panel is not an agent either: it does not show up in `arc agents` and it does not
+mark as delivered what it displays.
 
-## Configuración del hub
+## Hub configuration
 
-| Variable | Por defecto | Para qué |
+| Variable | Default | What for |
 |---|---|---|
-| `ARC_TOKEN` | — | Secreto compartido. **Obligatorio** salvo modo anónimo. |
-| `ARC_ALLOW_ANONYMOUS` | — | `1` desactiva la autenticación y fuerza escucha en loopback. Sólo para pruebas. |
-| `ARC_URLS` | `http://0.0.0.0:8765` | Dónde escuchar. |
-| `ARC_DB` | `arc.db` junto al ejecutable | Fichero SQLite. |
-| `ARC_MAX_WAIT` | `300` | Tope de segundos por espera. |
+| `ARC_TOKEN` | — | Shared secret. **Mandatory** except in anonymous mode. |
+| `ARC_ALLOW_ANONYMOUS` | — | `1` disables authentication and forces listening on loopback. Testing only. |
+| `ARC_URLS` | `http://0.0.0.0:8765` | Where to listen. |
+| `ARC_DB` | `arc.db` next to the executable | SQLite file. |
+| `ARC_MAX_WAIT` | `300` | Cap in seconds per wait. |
 
-`install-hub.ps1` fija `ARC_TOKEN`, `ARC_DB` y `ARC_URLS` a nivel de **máquina**,
-no de usuario: el servicio no hereda tu entorno.
+`install-hub.ps1` sets `ARC_TOKEN`, `ARC_DB` and `ARC_URLS` at the **machine** level, not the
+user level: the service does not inherit your environment.
 
-## Mantenimiento
+## Maintenance
 
-Todo lo de aquí necesita consola **de administrador**.
+Everything here needs an **administrator** console.
 
-**Quitar el hub de la máquina** — para el servicio, lo borra y retira la regla de
-firewall:
+**Remove the hub from the machine** — stops the service, deletes it and withdraws the firewall
+rule:
 
 ```powershell
 ./scripts/install-hub.ps1 -Uninstall
 ```
 
-No toca las variables de máquina ni el fichero `arc.db`. Si quieres borrarlas del
-todo:
+It does not touch the machine variables or the `arc.db` file. If you want to delete those as
+well:
 
 ```powershell
 'ARC_TOKEN','ARC_DB','ARC_URLS' | ForEach-Object { [Environment]::SetEnvironmentVariable($_, $null, 'Machine') }
 ```
 
-**Recuperar el token** si lo perdiste, sin reinstalar nada:
+**Recover the token** if you lost it, without reinstalling anything:
 
 ```powershell
 [Environment]::GetEnvironmentVariable('ARC_TOKEN', 'Machine')
 ```
 
-**Rotar el token** — vuelve a lanzar el instalador con uno nuevo; recrea el
-servicio con él. Después hay que actualizar `ARC_TOKEN` en las dos PCs:
+**Rotate the token** — run the installer again with a new one; it recreates the service with
+it. Afterwards you have to update `ARC_TOKEN` on both PCs:
 
 ```powershell
-./scripts/install-hub.ps1 -HubPath .\publish\hub -Token (Read-Host 'nuevo token')
+./scripts/install-hub.ps1 -HubPath .\publish\hub -Token (Read-Host 'new token')
 ```
 
-**Abrir sólo el firewall**, sin instalar servicio, con `-FirewallOnly`. Y el puerto
-se cambia con `-Port` tanto al instalar como al desinstalar.
+**Open the firewall only**, without installing the service, with `-FirewallOnly`. And the port
+is changed with `-Port`, both when installing and when uninstalling.
 
-## Cuando algo no responde
+## When something does not answer
 
-`/healthz` es el único endpoint que **no** pide token, así que sirve para
-diagnosticar desde cualquier máquina:
+`/healthz` is the only endpoint that does **not** ask for a token, so it is the one to
+diagnose with from any machine:
 
 ```bash
 curl http://192.168.1.10:8765/healthz
 ```
 
-Devuelve el tiempo en marcha, si el hub exige autenticación, el `ARC_MAX_WAIT`
-efectivo, la ruta de la base de datos, los agentes vistos y —lo más útil— las
-**esperas activas**: dos agentes esperándose mutuamente se ven ahí.
+It returns the uptime, whether the hub requires authentication, the effective `ARC_MAX_WAIT`,
+the database path, the agents seen and — most useful of all — the **active waits**: two agents
+waiting for each other show up right there.
 
-| Síntoma | Causa habitual |
+| Symptom | Usual cause |
 |---|---|
-| `arc health` funciona en el hub pero no desde la otra PC | La red está clasificada como pública. La regla sólo abre el perfil privado: `Get-NetConnectionProfile` |
-| `401 unauthorized` | `ARC_TOKEN` distinto del que tiene el servicio, o sin definir |
-| `400 bad_agent` | `ARC_AGENT` con mayúsculas, espacios o vacío. Ver el formato más arriba |
-| `403 forbidden` | Leer el buzón de otro, o responder a algo que no va dirigido a ti |
-| `409 already_answered` | Esa petición ya tiene respuesta; el ciclo es de una sola contestación |
-| Acentos corrompidos | Cuerpo pasado por `--body`. Usa `--body-file` |
-| El servicio existe pero no responde | `Get-Service ArcHub`; si arranca y muere, casi siempre es `ARC_TOKEN` sin definir a nivel de máquina |
+| `arc health` works on the hub but not from the other PC | The network is classified as public. The rule only opens the private profile: `Get-NetConnectionProfile` |
+| `401 unauthorized` | `ARC_TOKEN` different from the one the service has, or undefined |
+| `422 bad_agent` | `ARC_AGENT` with uppercase letters, spaces, or empty. See the format above |
+| `403 forbidden` | Reading someone else's mailbox, or answering something not addressed to you |
+| `409 already_answered` | That request already has an answer; the cycle allows a single reply |
+| Corrupted accents | Body passed with `--body`. Use `--body-file` |
+| The service exists but does not answer | `Get-Service ArcHub`; if it starts and dies, it is almost always `ARC_TOKEN` undefined at machine level |
 
-Una petición que expiró **no se pierde**: sigue viva en el buzón del destinatario y
-se recupera con `arc inbox --unanswered` o `arc await <request_id>`.
+A request that expired **is not lost**: it is still alive in the recipient's mailbox and is
+recovered with `arc inbox --unanswered` or `arc await <request_id>`.
 
-## Un apunte sobre la app de escritorio de ChatGPT
+## A note on the ChatGPT desktop app
 
-Sus conectores se ejecutan desde la infraestructura de OpenAI, no desde tu equipo:
-un host de tu LAN privada no es alcanzable desde ahí. Incluirla exigiría exponer el
-hub a internet por HTTPS mediante un túnel, con la superficie de ataque que eso
-añade. El canal fiable son Claude Code y Codex CLI, ambos en tu red.
+Its connectors run from OpenAI's infrastructure, not from your machine: a host on your private
+LAN is not reachable from there. Including it would require exposing the hub to the internet
+over HTTPS through a tunnel, with the attack surface that adds. The reliable channel is Claude
+Code and Codex CLI, both on your network.
 
-## Estructura
+## Structure
 
-| Ruta | Contenido |
+| Path | Contents |
 |---|---|
-| [src/Arc.Core](src/Arc.Core) | Modelo, almacén SQLite, registro de esperas y reglas del canal |
-| [src/Arc.Hub](src/Arc.Hub) | Servicio HTTP: endpoints REST, herramientas MCP y el panel de `/ui` |
-| [src/Arc.Cli](src/Arc.Cli) | Cliente `arc` |
-| [tests/Arc.Tests](tests/Arc.Tests) | Pruebas del núcleo |
-| [scripts](scripts) | Publicación, instalación y pruebas de humo |
-| [docs/PROTOCOL.md](docs/PROTOCOL.md) | Contrato completo de mensajes y endpoints |
-| [docs/AGENTES.md](docs/AGENTES.md) | Texto para pegar en el `CLAUDE.md` / `AGENTS.md` de cada agente |
+| [src/Arc.Core](src/Arc.Core) | Model, SQLite store, wait registry and channel rules |
+| [src/Arc.Hub](src/Arc.Hub) | HTTP service: REST endpoints, MCP tools and the `/ui` panel |
+| [src/Arc.Cli](src/Arc.Cli) | The `arc` client |
+| [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
+| [scripts](scripts) | Publishing, installation and smoke tests |
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
+| [docs/AGENTES.md](docs/AGENTES.md) | Text to paste into each agent's `CLAUDE.md` / `AGENTS.md` |
 
-## Verificación
+## Verification
 
-Todo de una pasada — levanta un hub temporal, lo prueba y lo apaga:
+Everything in one pass — it brings up a temporary hub, tests it and shuts it down:
 
 ```bash
 bash scripts/test-all.sh
 ```
 
-O por partes, contra un hub ya en marcha:
+Or piece by piece, against a hub already running:
 
 ```bash
-dotnet test                  # núcleo: registro de esperas y persistencia
-bash scripts/smoke.sh        # REST, incluido el ciclo bloqueante completo
-bash scripts/smoke-cli.sh    # el cliente tal y como lo usará un agente
-bash scripts/smoke-mcp.sh    # handshake MCP, catálogo y llamada real
-bash scripts/smoke-ui.sh     # el panel y su flujo de eventos
+dotnet test                  # core: wait registry and persistence
+bash scripts/smoke.sh        # REST, including the full blocking cycle
+bash scripts/smoke-cli.sh    # the client exactly as an agent will use it
+bash scripts/smoke-mcp.sh    # MCP handshake, catalogue and a real call
+bash scripts/smoke-ui.sh     # the panel and its event stream
 ```

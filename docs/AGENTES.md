@@ -1,99 +1,101 @@
-# Instrucciones para los agentes
+# Instructions for the agents
 
-Pega esta sección en el `CLAUDE.md` (Claude Code) y en el `AGENTS.md` (Codex) del
-repositorio en el que trabajen. Ajusta los nombres de agente a los tuyos.
+Paste this section into the `CLAUDE.md` (Claude Code) and the `AGENTS.md` (Codex) of the
+repository they work in. Adjust the agent names to your own.
 
 ---
 
-## Comunicación con el otro agente
+## Communicating with the other agent
 
-Trabajas en paralelo con otro agente, de un proveedor distinto y en otra máquina,
-sobre un clon del mismo repositorio. Os comunicáis por ARC, no por ficheros.
+You are working in parallel with another agent, from a different provider and on a
+different machine, over a clone of the same repository. You communicate through ARC, not
+through files.
 
-| Agente | Máquina | Proveedor |
+| Agent | Machine | Provider |
 |---|---|---|
 | `claude-pc1` | PC1 | Claude Code |
 | `codex-pc2` | PC2 | Codex CLI |
 
-### Cuándo escribir al otro
+### When to write to the other one
 
-- **Pregunta (`arc_ask` / `arc ask`)** cuando necesites su respuesta para seguir:
-  un contrato de API que él define, una decisión sobre código que él está tocando,
-  confirmar un supuesto antes de construir sobre él. Bloquea hasta que conteste.
-- **Aviso (`arc_note` / `arc note`)** cuando sólo informas de un hecho consumado:
-  "he subido la rama", "cambié la firma de este método". No espera respuesta.
-- **No escribas** para narrar tu progreso. El canal es para lo que el otro necesita
-  saber, no para llevar un diario.
+- **Ask (`arc_ask` / `arc ask`)** when you need their answer in order to go on: an API
+  contract they define, a decision about code they are touching, confirming an assumption
+  before building on it. It blocks until they reply.
+- **Notify (`arc_note` / `arc note`)** when you are only reporting an accomplished fact:
+  "I pushed the branch", "I changed the signature of this method". It expects no answer.
+- **Do not write** to narrate your progress. The channel is for what the other one needs
+  to know, not for keeping a diary.
 
-### Al empezar un turno
+### At the start of a turn
 
-Mira el buzón antes de ponerte a trabajar: puede que el otro agente esté
-bloqueado esperándote ahora mismo.
+Check the mailbox before you get to work: the other agent may be blocked waiting for you
+right now.
 
 ```bash
 arc inbox
 ```
 
-Si te llega una petición, contéstala antes de seguir con lo tuyo: cada minuto que
-tardas es un minuto que el otro pasa parado.
+If a request has arrived, answer it before carrying on with your own work: every minute
+you take is a minute the other one spends idle.
 
 ```bash
-arc respond req_1a2b3c --body-file respuesta.md
+arc respond req_1a2b3c --body-file answer.md
 ```
 
-### Qué mandar en un mensaje
+### What to send in a message
 
-Ambas máquinas tienen el mismo repositorio. **Manda referencias, no contenido**:
+Both machines have the same repository. **Send references, not content**:
 
 ```bash
 arc ask --to codex-pc2 \
-  --subject "Contrato del endpoint de pagos" \
-  --body-file pregunta.md \
-  --refs '{"branch":"feat/pagos","commit":"a1b2c3d","files":["src/pagos/Total.cs"]}' \
+  --subject "Contract of the payments endpoint" \
+  --body-file question.md \
+  --refs '{"branch":"feat/payments","commit":"a1b2c3d","files":["src/payments/Total.cs"]}' \
   --wait 180
 ```
 
-Antes de citar código, sube tu rama: así el otro puede mirarlo en su propio clon.
-El cuerpo está limitado a 256 KB.
+Before quoting code, push your branch: that way the other one can look at it in their own
+clone. The body is limited to 256 KB.
 
-### Escribir el cuerpo
+### Writing the body
 
-Siempre por fichero, nunca en la línea de comandos: en Windows los argumentos
-pasan por la codepage ANSI y los acentos se corrompen.
+Always by file, never on the command line: on Windows the arguments go through the ANSI
+codepage and accented characters get corrupted.
 
 ```bash
-cat > pregunta.md <<'EOF'
-¿El campo `total` viaja en céntimos o en euros?
-Lo necesito para cerrar la validación del formulario.
+cat > question.md <<'EOF'
+Does the `total` field travel in cents or in euros?
+I need it to close the form validation.
 EOF
-arc ask --to codex-pc2 --body-file pregunta.md --wait 180
+arc ask --to codex-pc2 --body-file question.md --wait 180
 ```
 
-### Cuando la espera vence
+### When the wait expires
 
-No es un error. La petición sigue viva y el otro la verá en su buzón. Tienes dos
-opciones y casi siempre conviene la primera:
+It is not an error. The request is still alive and the other one will see it in their
+mailbox. You have two options, and the first is almost always the right one:
 
-1. Seguir con otra parte de tu trabajo y recoger la respuesta más tarde:
+1. Carry on with another part of your work and pick the answer up later:
    `arc await req_1a2b3c --wait 300`.
-2. Volver a esperar, si de verdad no puedes avanzar sin ella.
+2. Wait again, if you genuinely cannot make progress without it.
 
-**Nunca os quedéis los dos esperando a la vez**: agotaríais ambos turnos sin que
-nadie avance. Si vas a preguntar algo largo, avisa con `arc note` y sigue trabajando.
+**Never both wait at the same time**: you would burn through both turns without anyone
+making progress. If you are going to ask something long, say so with `arc note` and keep
+working.
 
-### Códigos de salida
+### Exit codes
 
-Ramifica por el código, no por el texto:
+Branch on the code, not on the text:
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| `0` | Respondido / hay mensajes / operación correcta |
-| `1` | Error de red o del hub |
-| `2` | Uso incorrecto del comando |
-| `3` | La espera venció sin respuesta |
-| `4` | El buzón está vacío |
+| `0` | Answered / there are messages / the operation succeeded |
+| `1` | Network or hub error |
+| `2` | Incorrect use of the command |
+| `3` | The wait expired with no answer |
+| `4` | The mailbox is empty |
 
-### Si el canal no responde
+### If the channel does not answer
 
-Comprueba `arc health`. Si el hub no está en pie, sigue con tu trabajo y deja
-constancia de lo que habrías preguntado; no bloquees el turno reintentando.
+Check `arc health`. If the hub is not up, carry on with your work and leave a record of
+what you would have asked; do not block the turn retrying.
