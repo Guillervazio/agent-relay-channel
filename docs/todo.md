@@ -1,35 +1,41 @@
 # Current work
 
-Increment 01 — ARC adopts the house doctrine.
+Increment 01 is closed — [specs/01-arc-adopts-the-house-doctrine.md](specs/01-arc-adopts-the-house-doctrine.md).
+Nothing is in progress.
 
-**Last verified** (4 September 2026, commit `baefc7e`):
+**Last verified** (4 September 2026, commit `8f6b4c2` plus this one):
 
 * `dotnet restore --force` clean across 4 projects
 * `dotnet build` — **0 warnings, 0 errors**, with `TreatWarningsAsErrors` and
   `EnforceCodeStyleInBuild` on
-* `dotnet build -p:EnforceCodeStyleInBuild=true` — **0 style diagnostics** (was 311: 216 IDE0008,
-  90 IDE0011, 5 IDE1006)
+* `dotnet build -p:EnforceCodeStyleInBuild=true` — **0 style diagnostics** (was 311)
 * `dotnet test` — **21 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
+* `bash scripts/test-all.sh` — **four suites green**: REST, CLI, MCP, observer UI
 * `arc --help` → 0, `arc` → 2, `arc noexiste` → 2
+* `stop-gate.ps1` invoked directly: **exit 2** on a deliberately broken build, **exit 0** restored
 
-Not verified: `bash scripts/test-all.sh` has not been run since the style commits. The gate has
-not been seen blocking a turn.
+---
 
-| # | Phase | Status | Commit |
-|---|---|---|---|
-| 1 | Redact the demo token, `.gitignore`, `.gitattributes`, `git init` | done | `9d45be9` |
-| 2 | Measure before deciding: warnings, style cost, what the fixer covers | done | — |
-| 3 | Adopt the `.editorconfig` | done | `e849d4c` |
-| 4 | Apply the automatic style fixes | done | `54830a4` |
-| 5 | Convert the 171 `var` the fixer could not reach | done | `3c7a6b7` |
-| 6 | The CLI's exit codes into a constant table | done | `e5a5b8c` |
-| 7 | `Directory.Build.props`, `global.json`, central package management | done | `baefc7e` |
-| 8 | The rules, the ADRs, `CLAUDE.md`, this file | in progress | — |
-| 9 | Install the plugin and **see the gate block a turn** | not started | — |
-| 10 | Fix what the rules now say: H007, the four error-code copies, H013, `TimeProvider` | not started | — |
-| 11 | Tests for `ChannelService`, which today has none | not started | — |
+## Increment 02 — make the code obey what the rules now say
+
+Not started. In this order, because each step is a commit and the last two depend on the first
+three landing in `ChannelService`.
+
+| # | Phase | Status |
+|---|---|---|
+| 1 | H007: `UPDATE … AND status <> 'answered'`, check rows affected, roll back and throw `already_answered` on zero. Test: two concurrent `RespondAsync`, exactly one wins | not started |
+| 2 | H012: one `ArcErrors` definition in `Arc.Core`; the other three copies reference it; `PROTOCOL.md` stays the published table; **tests spell the literals** | not started |
+| 3 | H013: the four codes move 400 → 422, `bad_agent` decided, `PROTOCOL.md` in the same commit | not started |
+| 4 | `Clamp` refuses an out-of-range `wait` with 422 instead of truncating | not started |
+| 5 | `TimeProvider` injected into `ChannelService` and the hub's two timestamps; one package approval for `FakeTimeProvider` | not started |
+| 6 | Tests for `ChannelService`, which today has none — and where H002 becomes binding, because the temptation is to add the repository's first interface to fake the store | not started |
 
 Every phase is closed in the same commit that updates its row.
 
-Deferred work with its trigger: [backlog.md](backlog.md).
+Two things are owed before any of that and are not phases, because they are not code:
+
+* The GitHub remote. `gh` is not installed; the repository is local-only.
+* The `.claude/settings.json` denylist, which currently names a pattern that matches nothing.
+
+Both are in [backlog.md](backlog.md) with what makes them due.
