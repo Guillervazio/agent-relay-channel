@@ -13,6 +13,7 @@ public sealed class ArcToolsTests : IAsyncLifetime
 {
     private const string A = "claude-pc1";
     private const string B = "codex-pc2";
+    private const string C = "gemini-pc3";
 
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"arc-tools-{Guid.NewGuid():n}.db");
     private MessageStore _store = null!;
@@ -114,7 +115,21 @@ public sealed class ArcToolsTests : IAsyncLifetime
     {
         Message note = await _channel.NoteAsync(A, B, "rama subida", null, null, null);
 
-        string thread = await ArcTools.ThreadAsync(_channel, note.ThreadId);
+        string thread = await ArcTools.ThreadAsync(_channel, As(B), note.ThreadId);
         Assert.Contains("rama subida", thread, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Un_hilo_ajeno_se_cuenta_como_uno_que_no_existe()
+    {
+        Message note = await _channel.NoteAsync(A, B, "la clave está en el fichero", null, null, null);
+
+        string ajeno = await ArcTools.ThreadAsync(_channel, As(C), note.ThreadId);
+        string inventado = await ArcTools.ThreadAsync(_channel, As(C), "thr_0000000000000000");
+
+        // La herramienta contesta en prosa, así que es la prosa la que no puede delatar
+        // cuál de los dos casos fue.
+        Assert.DoesNotContain("la clave", ajeno, StringComparison.Ordinal);
+        Assert.Equal(inventado.Replace("thr_0000000000000000", note.ThreadId, StringComparison.Ordinal), ajeno);
     }
 }

@@ -16,6 +16,7 @@ public sealed class ChannelServiceTests : IAsyncLifetime
 {
     private const string A = "claude-pc1";
     private const string B = "codex-pc2";
+    private const string C = "gemini-pc3";
 
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"arc-channel-{Guid.NewGuid():n}.db");
     private MessageStore _store = null!;
@@ -214,6 +215,66 @@ public sealed class ChannelServiceTests : IAsyncLifetime
         Assert.Equal(MessageKind.Note, aviso.Kind);
         Message recibido = Assert.Single(await _store.GetInboxAsync(B));
         Assert.Equal(aviso.Id, recibido.Id);
+    }
+
+    // ---------- Leer un mensaje y leer un hilo ----------
+
+    [Fact]
+    public async Task Los_dos_extremos_de_un_mensaje_lo_leen()
+    {
+        Message aviso = await _channel.NoteAsync(A, B, "he tocado el endpoint de pagos", null, null, null);
+
+        Assert.Equal(aviso.Id, (await _channel.MessageAsync(A, aviso.Id)).Id);
+        Assert.Equal(aviso.Id, (await _channel.MessageAsync(B, aviso.Id)).Id);
+    }
+
+    [Fact]
+    public async Task Un_mensaje_ajeno_no_se_distingue_de_uno_que_no_existe()
+    {
+        Message aviso = await _channel.NoteAsync(A, B, "la clave está en el fichero", null, null, null);
+
+        ChannelException ajeno = await Assert.ThrowsAsync<ChannelException>(() => _channel.MessageAsync(C, aviso.Id));
+        ChannelException inventado = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.MessageAsync(C, "not_0000000000000000"));
+
+        // Ni el código, ni el estado, ni el texto: cualquiera de los tres que difiriera
+        // contestaría la pregunta que el 404 existe para no contestar.
+        Assert.Equal("not_found", ajeno.Code);
+        Assert.Equal(404, ajeno.Status);
+        Assert.Equal(inventado.Message, ajeno.Message);
+    }
+
+    [Fact]
+    public async Task Un_hilo_se_recorta_a_las_filas_del_llamante()
+    {
+        Message deA = await _channel.NoteAsync(A, B, "he tocado el endpoint de pagos", null, null, null);
+
+        // C se cuela en el hilo mandando un aviso: aparece en él, y eso no puede bastar
+        // para leer lo que se dijo antes de que llegara.
+        Message deC = await _channel.NoteAsync(C, A, "yo también miro esto", null, null, deA.ThreadId);
+
+        Message soloDeC = Assert.Single(await _channel.ThreadAsync(C, deA.ThreadId));
+        Assert.Equal(deC.Id, soloDeC.Id);
+
+        Message soloDeB = Assert.Single(await _channel.ThreadAsync(B, deA.ThreadId));
+        Assert.Equal(deA.Id, soloDeB.Id);
+
+        // A está en los dos, y ve los dos.
+        Assert.Equal(2, (await _channel.ThreadAsync(A, deA.ThreadId)).Count);
+    }
+
+    [Fact]
+    public async Task Un_hilo_en_el_que_no_apareces_no_se_distingue_de_uno_que_no_existe()
+    {
+        Message aviso = await _channel.NoteAsync(A, B, "he tocado el endpoint de pagos", null, null, null);
+
+        ChannelException ajeno = await Assert.ThrowsAsync<ChannelException>(() => _channel.ThreadAsync(C, aviso.ThreadId));
+        ChannelException inventado = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.ThreadAsync(C, "thr_0000000000000000"));
+
+        Assert.Equal("not_found", ajeno.Code);
+        Assert.Equal(404, ajeno.Status);
+        Assert.Equal(inventado.Message, ajeno.Message);
     }
 
     private async Task<Message> LeerDelBuzonAsync(string agente)

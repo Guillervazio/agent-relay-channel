@@ -200,21 +200,13 @@ public static class HubApp
                 : Results.Ok(new InboxResult { Agent = agent, Messages = messages });
         });
 
+        // Leer un mensaje y leer un hilo deciden quién puede verlos, así que no son
+        // proyecciones del panel: pasan por el canal como cualquier otra operación.
         app.MapGet("/v1/messages/{id}", async (string id, HttpContext context) =>
-        {
-            Message? message = await store.GetAsync(id, context.RequestAborted);
-            return message is null
-                ? Results.NotFound(new ErrorBody(ArcErrors.NotFound, "No existe ese mensaje."))
-                : Results.Ok(message);
-        });
+            Results.Ok(await channel.MessageAsync(ArcTools.Caller(context), id, context.RequestAborted)));
 
         app.MapGet("/v1/threads/{id}", async (string id, HttpContext context) =>
-        {
-            IReadOnlyList<Message> messages = await store.GetThreadAsync(id, context.RequestAborted);
-            return messages.Count == 0
-                ? Results.NotFound(new ErrorBody(ArcErrors.NotFound, "No existe ese hilo."))
-                : Results.Ok(messages);
-        });
+            Results.Ok(await channel.ThreadAsync(ArcTools.Caller(context), id, context.RequestAborted)));
 
         // El token de cancelación se pide por parámetro, no por HttpContext: un manejador
         // cuyo único parámetro es HttpContext encaja con la forma de RequestDelegate y

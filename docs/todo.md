@@ -1,29 +1,25 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 06 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 07 are closed in [specs/](specs/).
 
-**Last verified** (5 September 2026, at the close of increment 06):
+**Last verified** (5 September 2026, at the close of increment 07):
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
-* `dotnet test` — **99 passed, 0 failed, 0 skipped**, 1 project
+* `dotnet test` — **107 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
 * `dotnet restore --force` — clean, no advisory
-* `bash scripts/test-all.sh` — **four suites green, 66 checks** (24 REST, 15 CLI, 16 MCP, 11 UI)
-* `gate.yml` on GitHub's runners, which is the only verification this repository cannot perform:
-  green on PR #6 and on the merge into `master` — build, format, test and the four smokes, 67
-  seconds
-* the same suite **inside `mcr.microsoft.com/dotnet/sdk:10.0`** against a copy of the working
-  tree — four suites, 66 checks, green: the first time any of it has run outside Windows
-* the container by hand, which no suite reaches: it refused to start with no `ARC_TOKEN` and said
-  so, ran as `app` rather than root, kept its threads across `docker rm` and a rebuild, started
-  with no warnings, and answered all four suites through the published port
-* `scripts/ArcHost.ps1` in **Windows PowerShell 5.1**, the edition both installer defects were
-  about: `New-ArcToken` returned a token and `Get-ArcLanAddress` returned `192.168.2.53`, the
-  LAN's, not WSL's `172.22.160.1`
-* `install-hub.ps1 -FirewallOnly` unelevated, which reaches its administrator check — the service
-  installation past that point is still unrun, and is in [backlog.md](backlog.md)
-* the preflight's failure paths: with `python` off the `PATH` `smoke.sh` named the interpreter and
-  exited **1**, and with no `curl` so did `smoke-mcp.sh`
+* `bash scripts/test-all.sh` — **four suites green, 76 checks** (29 REST, 18 CLI, 18 MCP, 11 UI)
+* by hand against a running hub, reading the answers rather than their status codes: a third agent
+  got the same 404 **byte for byte** on a real message and on an invented id, and on the real
+  thread; the recipient got its body back with the accents intact; the CLI printed
+  `El hub respondió 404 (not_found)` and exited **1**; and `/v1/observe`, with the token and no
+  agent header at all, still listed that conversation and served its body — which is the
+  deliberate behaviour this increment had to not break
+
+Everything increment 06 verified about hosting — the container, the SDK image, Windows PowerShell
+5.1, the installer's reachable half — was not re-run and is unaffected: this increment changed two
+handlers and the rules, and touched nothing about how the hub is started. Its record stands in
+[specs/06-a-machine-that-is-not-this-one.md](specs/06-a-machine-that-is-not-this-one.md).
 
 ---
 
@@ -39,12 +35,14 @@ Nothing is committed to, and this is not a ranking — it is where [backlog.md](
 trigger is nearest, so the next decision is taken against something rather than from a blank page.
 Each entry there names what has to become true first; read those rather than this list.
 
-* **The channel has no confidentiality.** `GET /v1/messages/{id}` and `GET /v1/threads/{id}`
-  perform no authorisation at all, which defeats the 403 `InboxAsync` raises and is why
-  [P006](adr/P006-403-on-another-agents-mailbox.md) has to say the protection H011 assumes does
-  not exist here. The README now states this where the token is handed over, which makes it a
-  documented property rather than a surprise — and moves nothing about when it is due: before the
-  channel carries anything one agent must not read.
 * **Three findings about delivery**, all reachable by the usage the README describes: two polls by
   the same agent both receive the same messages, a message is marked delivered before the client
-  has it, and a lost `note` is unrecoverable because `?unanswered=true` covers only requests.
+  has it, and a lost `note` is unrecoverable because `?unanswered=true` covers only requests. This
+  is now the oldest group of findings still open, and the only one whose trigger is ordinary use
+  rather than a decision.
+* **`invalid_refs` promises a validation nothing performs**, and REST cannot emit it. `refs` is
+  also unbounded while `body` is capped at 256 KB. Due when somebody decides what `refs` is — and
+  it is the smallest of the open findings.
+* **The service installation has still never been run end to end.** Everything past
+  `install-hub.ps1`'s administrator check is unexecuted. Due the next time the hub is installed as
+  a service, which is also the first time somebody follows the README to the end.

@@ -48,8 +48,8 @@ A `request` that was delivered but not answered is still recoverable with
 | `POST` | `/v1/requests/{id}/response` | Answers. Wakes the sender instantly. |
 | `POST` | `/v1/notes` | Notice with no answer expected. |
 | `GET` | `/v1/inbox/{agent}?wait=N&unanswered=` | Your own mailbox. `204` if nothing arrives within the deadline. |
-| `GET` | `/v1/threads/{id}` | The complete conversation, in order. |
-| `GET` | `/v1/messages/{id}` | One specific message. |
+| `GET` | `/v1/threads/{id}` | The conversation, in order — your messages in it. `404` if none are. |
+| `GET` | `/v1/messages/{id}` | One specific message, if you sent it or it was sent to you. `404` otherwise. |
 | `GET` | `/v1/agents` | Agents seen. |
 | `GET` | `/healthz` | State, active waits and agents. Unauthenticated. |
 | `GET` | `/ui` | Observation panel. Unauthenticated: it is a page with no data inside. |
@@ -62,6 +62,20 @@ A `request` that was delivered but not answered is still recoverable with
 an `outcome` indistinguishable from a real timeout, and the caller never finds out. The refusal
 happens before anything is created, so a rejected `wait` never leaves a request in the channel.
 `wait=0` queues and returns.
+
+### What you may read
+
+`/v1/messages/{id}` and `/v1/threads/{id}` answer only for the two ends of the message. A message
+you neither sent nor received, and one that does not exist, get **the same `404` with the same
+body** — a `403` would confirm that the id exists, which is what the `404` is there not to say. A
+thread is trimmed to your own messages in it rather than served whole to anyone appearing in it:
+sending one note into a thread is enough to appear in it, so appearing cannot be what grants the
+history.
+
+This is not confidentiality, and it is not a substitute for it. One shared token, an agent name
+that is attribution and never authorisation, and `/v1/observe` reading the whole channel by design
+all still hold — see *What the shared token does not protect* in the README. What these two routes
+stop is the case where reading someone else's message was not even a mistake the channel noticed.
 
 ### Observation
 
@@ -151,7 +165,7 @@ Always `{"error": "<code>", "detail": "<explanation>"}`:
 | `invalid_wait` | 422 | `wait` outside the range the hub accepts |
 | `self_addressed` | 422 | An agent writing to itself |
 | `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
-| `not_found` | 404 | No such request or thread |
+| `not_found` | 404 | No such request, message or thread — or none you may read |
 | `already_answered` | 409 | That request already has an answer |
 
 `400` is only for what could not be read. A request that arrived intact and that a rule
@@ -171,7 +185,7 @@ model can read it:
 | `arc_inbox` | Reads your mailbox; with `wait` it stays waiting. |
 | `arc_respond` | Answers a request addressed to you. |
 | `arc_note` | Announces without waiting for an answer. |
-| `arc_thread` | Retrieves a complete conversation. |
+| `arc_thread` | Retrieves a conversation — your messages in it. |
 | `arc_agents` | Lists who is on the channel. |
 
 ### The handshake carries the channel's instructions

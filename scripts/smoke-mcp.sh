@@ -13,6 +13,7 @@ URL="${ARC_URL:-http://127.0.0.1:8765}"
 TOKEN="${ARC_TOKEN:-}"
 A="${ARC_A:-claude-pc1}"
 B="${ARC_B:-codex-pc2}"
+C="${ARC_C:-tercero-pc3}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -101,7 +102,32 @@ sys.exit(0 if any(m['body'] == esperado for m in mensajes) else 1)
 " "$WORK/esperado.txt" "$WORK/inbox.json"
 check "el texto con acentos cruza intacto la capa MCP" $?
 
-echo "== 5. Identidad obligatoria también en MCP =="
+echo "== 5. Un hilo que no es tuyo =="
+thread_id=$("$PY" -c "
+import json,io,sys
+print(json.load(io.open(sys.argv[1], encoding='utf-8'))['messages'][0]['thread_id'])
+" "$WORK/inbox.json")
+
+# La identidad viaja por cabecera, pero la sesión es del cliente: C hace la suya.
+SESSION=""
+rpc "$C" "$WORK/init.json" "$WORK/init-c.headers" > /dev/null
+SESSION=$(grep -i 'mcp-session-id' "$WORK/init-c.headers" | tr -d '' | awk '{print $2}')
+rpc "$C" "$WORK/ready.json" > /dev/null
+
+cat > "$WORK/thread-c.json" <<JSON
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"arc_thread","arguments":{"threadId":"$thread_id"}}}
+JSON
+rpc "$C" "$WORK/thread-c.json" > "$WORK/thread-c.out"
+
+# La herramienta contesta en prosa, así que es la prosa la que no puede delatar
+# si el hilo existe: la misma frase que para un identificador inventado.
+grep -q 'No existe el hilo' "$WORK/thread-c.out"
+check "arc_thread le dice a un tercero lo mismo que de un hilo inventado" $?
+
+! grep -q 'Aviso desde MCP' "$WORK/thread-c.out"
+check "y no deja caer el cuerpo en el texto que lee el modelo" $?
+
+echo "== 6. Identidad obligatoria también en MCP =="
 SESSION=""
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/mcp" \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \

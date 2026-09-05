@@ -29,8 +29,27 @@ wrong is the one who trusted the document.
 * Ceasing to send `instructions` in the MCP `initialize` result, or sending it empty.
   `PROTOCOL.md` guarantees the field arrives and is not empty, and that guarantee is the whole
   of what a client may rely on.
+* **Refusing what a published route used to answer.** Narrowing who or what a route serves
+  invalidates clients already relying on it, the same way narrowing `AgentNamePattern`
+  invalidates names already in use.
 
 A breaking change is a new `/v1` → `/v2` path prefix with new handlers. The old ones freeze.
+
+### The one exception to that last clause
+
+A refusal is **not** breaking when no honest client could have depended on the answer it removes —
+when the old behaviour was the defect and not the contract. Increment 07 narrowed
+`GET /v1/messages/{id}` and `GET /v1/threads/{id}` to the two ends of a message without a `/v2`,
+because the only caller that loses an answer is one reading a message it was not a party to, and
+that caller is what was being fixed
+([P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md)).
+
+**The test is not "is this a security fix".** It is whether an honest client could hit the new
+refusal. Forbidding `note` to oneself would fail that test — an agent noting to itself is not
+doing anything wrong, only something undecided — so that one waits for a `/v2` or stays as it is.
+The exception is narrow on purpose: "the old behaviour was a defect" is available to argue about
+almost any change, and what keeps it honest is naming the client that breaks and showing it could
+only be an abusive one.
 
 ## What is not breaking
 

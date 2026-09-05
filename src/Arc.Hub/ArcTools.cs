@@ -153,13 +153,20 @@ public sealed class ArcTools
     [Description("Muestra una conversación completa en orden, para recuperar el contexto de un intercambio anterior.")]
     public static async Task<string> ThreadAsync(
         ChannelService channel,
+        IHttpContextAccessor accessor,
         [Description("Identificador del hilo, del tipo 'thr_1a2b3c'.")] string threadId,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Message> messages = await channel.Store.GetThreadAsync(threadId, cancellationToken);
-        if (messages.Count == 0)
+        IReadOnlyList<Message> messages;
+        try
         {
-            return $"No existe el hilo {threadId}.";
+            messages = await channel.ThreadAsync(Caller(accessor), threadId, cancellationToken);
+        }
+        catch (ChannelException refusal) when (refusal.Code == ArcErrors.NotFound)
+        {
+            // Una sola frase para los dos casos: el hilo ajeno y el que no existe se
+            // contestan igual, y decirle al modelo cuál de los dos fue sería decírselo.
+            return $"No existe el hilo {threadId}, o no tienes ningún mensaje en él.";
         }
 
         StringBuilder text = new StringBuilder($"Hilo {threadId} · {messages.Count} mensaje(s):");
