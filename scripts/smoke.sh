@@ -191,6 +191,58 @@ check "el destinatario sigue leyendo su mensaje" $?
 curl -s "$URL/v1/observe/history" "${hdr[@]}" | grep -q "$req_id"
 check "/v1/observe sigue viendo el canal entero, que es lo que es" $?
 
+echo "== 7. Escribirse a uno mismo =="
+# Un aviso a uno mismo siempre valio; una peticion, no, y nada decia por que.
+# Ahora las dos valen y lo que se niega es la espera, que es lo unico que no
+# podia terminar: el unico que podria contestar es el que esta bloqueado.
+body '{"to":"'"$A"'","body":"revisar el pin de SQLitePCLRaw"}' propia.json
+propia=$(curl -s -X POST "$URL/v1/requests?wait=0" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/propia.json")
+[ "$(printf '%s' "$propia" | jget "['outcome']")" = "queued" ]
+check "una peticion a uno mismo se encola" $?
+
+propia_id=$(printf '%s' "$propia" | jget "['request_id']")
+curl -s "$URL/v1/inbox/$A" "${hdr[@]}" -H "X-ARC-Agent: $A" | grep -q "$propia_id"
+check "y llega al buzon del que la mando" $?
+
+out=$(curl -s -w '
+%{http_code}' -X POST "$URL/v1/requests?wait=5" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/propia.json")
+[ "$(printf '%s' "$out" | tail -n1)" = "422" ] && printf '%s' "$out" | grep -q 'self_addressed'
+check "pedir espera sobre uno mismo es 422, no un plazo que se agota" $?
+
+# La otra puerta: si la negativa estuviera solo en el ask, encolar con 0 y
+# esperar despues la esquivaria en dos llamadas.
+out=$(curl -s -w '
+%{http_code}' "$URL/v1/requests/$propia_id/response?wait=5" "${hdr[@]}" -H "X-ARC-Agent: $A")
+[ "$(printf '%s' "$out" | tail -n1)" = "422" ] && printf '%s' "$out" | grep -q 'self_addressed'
+check "y esperarla en una segunda llamada tampoco cuela" $?
+
+# Contestarse a uno mismo siempre valio, y recoger esa respuesta no se niega:
+# lo que no podia terminar era la espera, no la respuesta que ya existe.
+body '{"body":"sigue vigente"}' propia-res.json
+curl -s -o /dev/null -X POST "$URL/v1/requests/$propia_id/response" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/propia-res.json"
+curl -s "$URL/v1/requests/$propia_id/response?wait=5" "${hdr[@]}" -H "X-ARC-Agent: $A" | grep -q 'sigue vigente'
+check "una respuesta que uno se dio a si mismo se recoge sin negativa" $?
+
+echo "== 8. Unas refs que no son un objeto =="
+# El contrato prometia un objeto y nada lo comprobaba. Dice ya lo que el codigo
+# hace, y esto es lo que no puede volver a romperse en silencio.
+body '{"to":"'"$B"'","body":"revisa estos dos","refs":["src/x.cs","src/y.cs"]}' array-refs.json
+curl -s -X POST "$URL/v1/requests?wait=0" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/array-refs.json" > "$WORK/array-ask.json"
+[ -n "$(jget "['request_id']" < "$WORK/array-ask.json")" ]
+check "unas refs que son un array se aceptan" $?
+
+curl -s "$URL/v1/inbox/$B" "${hdr[@]}" -H "X-ARC-Agent: $B" > "$WORK/inbox-array.json"
+grep -q 'src/y.cs' "$WORK/inbox-array.json"
+check "y viajan intactas hasta el buzon del destinatario" $?
+
+# Unas refs rotas rompen el cuerpo entero, asi que por REST son un 400 y no
+# invalid_refs: esa es la forma del cable, no un olvido.
+printf '%s' '{"to":"'"$B"'","body":"x","refs":{roto}}' > "$WORK/refs-rotas.json"
+out=$(curl -s -w '
+%{http_code}' -X POST "$URL/v1/requests?wait=0" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/refs-rotas.json")
+[ "$(printf '%s' "$out" | tail -n1)" = "400" ] && printf '%s' "$out" | grep -q 'invalid_json'
+check "unas refs ilegibles son un cuerpo ilegible: 400 invalid_json" $?
+
 echo
 echo "$pass correctas, $fail fallidas"
 [ "$fail" -eq 0 ]

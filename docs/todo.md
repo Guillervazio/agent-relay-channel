@@ -34,8 +34,8 @@ refused and why it is not the same case.
 |---|---|---|---|
 | 1 | `refs` is any JSON value, and `invalid_refs` says which surface can emit it | done | `3f46a3e` |
 | 2 | An agent may queue a question to itself, and may not wait on it | done | this commit |
-| 3 | MCP says why it refused, instead of that something went wrong | done | this commit |
-| 4 | The suites drive all three against a running hub, on the surfaces that can reach them | pending | |
+| 3 | MCP says why it refused, instead of that something went wrong | done | `655ecca` |
+| 4 | The suites drive all three against a running hub, on the surfaces that can reach them | done | this commit |
 | 5 | Close: the records, the spec, and what the backlog no longer owes | pending | |
 
 **Every phase is closed in the same commit that updates its row.** The increment is closed by

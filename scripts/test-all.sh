@@ -19,8 +19,22 @@ export ARC_URLS="$ARC_URL"
 export ARC_DB="$(mktemp -d)/arc-test.db"
 
 echo "### Pruebas unitarias ###"
-dotnet test --nologo -v q 2>&1 | tail -3
-unit=${PIPESTATUS[0]}
+# La salida entera a un fichero, y sólo el resumen a la vista. Un `| tail -3` deja
+# el recuento y se come el nombre de lo que falló: si el fallo es intermitente,
+# esa pasada es la única prueba que había y se pierde.
+UNIT_LOG="$(dirname "$ARC_DB")/unit.log"
+dotnet test --nologo -v q > "$UNIT_LOG" 2>&1
+unit=$?
+tail -3 "$UNIT_LOG"
+if [ "$unit" -ne 0 ]; then
+  echo
+  echo "  Qué falló, que el resumen no dice:"
+  grep -E "^\s*(Failed|Error Message|Assert\.|Expected|Actual)" "$UNIT_LOG" | head -30
+  # Fuera del directorio que borra el trap: si el fallo no se repite, esta pasada
+  # era la única prueba. `*.log` ya está en .gitignore.
+  cp "$UNIT_LOG" ./unit-fail.log
+  echo "  Registro completo: ./unit-fail.log"
+fi
 
 echo
 echo "### Compilando el hub ###"
