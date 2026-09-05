@@ -24,8 +24,8 @@ refused and why it is not the same case.
 
 | # | Phase | Status | Commit |
 |---|---|---|---|
-| 1 | `refs` is any JSON value, and `invalid_refs` says which surface can emit it | done | this commit |
-| 2 | An agent may queue a question to itself, and may not wait on it | pending | |
+| 1 | `refs` is any JSON value, and `invalid_refs` says which surface can emit it | done | `3f46a3e` |
+| 2 | An agent may queue a question to itself, and may not wait on it | done | this commit |
 | 3 | Close: the records, the spec, and what the backlog no longer owes | pending | |
 
 **Every phase is closed in the same commit that updates its row.** The increment is closed by

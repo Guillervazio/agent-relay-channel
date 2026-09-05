@@ -45,7 +45,11 @@ public static class ArcErrors
     /// <summary><c>wait</c> fuera del rango que admite el hub.</summary>
     public const string InvalidWait = "invalid_wait";
 
-    /// <summary>Un agente se escribe a sí mismo.</summary>
+    /// <summary>
+    /// Un agente pide esperar su propia respuesta. Escribirse a sí mismo sí vale — un aviso
+    /// siempre pudo, y una petición con <c>wait</c> a 0 queda en el buzón del que la manda —;
+    /// lo que no vale es bloquearse esperando a quien está bloqueado.
+    /// </summary>
     public const string SelfAddressed = "self_addressed";
 
     /// <summary>Buzón ajeno, o responder algo que no va dirigido a ti.</summary>

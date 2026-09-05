@@ -44,13 +44,52 @@ public sealed class ChannelServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Un_agente_no_puede_preguntarse_a_si_mismo()
+    public async Task Un_agente_puede_dejarse_una_peticion_en_su_propio_buzon()
+    {
+        AskResult result = await _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 0);
+
+        Assert.Equal("queued", result.Outcome);
+
+        IReadOnlyList<Message> inbox = await _channel.InboxAsync(A, A, false, 0);
+        Assert.Contains(inbox, m => m.Id == result.RequestId);
+    }
+
+    [Fact]
+    public async Task Un_agente_no_puede_esperar_su_propia_respuesta()
     {
         ChannelException error = await Assert.ThrowsAsync<ChannelException>(
-            () => _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 0));
+            () => _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 5));
 
         Assert.Equal("self_addressed", error.Code);
         Assert.Equal(422, error.Status);
+    }
+
+    // La negativa está en las dos puertas: si sólo estuviera en AskAsync, encolar con 0 y
+    // esperar después la esquivaría en dos llamadas.
+    [Fact]
+    public async Task Tampoco_puede_esperarla_en_una_segunda_llamada()
+    {
+        AskResult queued = await _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 0);
+
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.AwaitResponseAsync(A, queued.RequestId, 5));
+
+        Assert.Equal("self_addressed", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    // Y no se niega recoger lo que ya existe: la espera es lo que no podía terminar,
+    // no la respuesta que el propio agente se dio en otro turno.
+    [Fact]
+    public async Task Una_respuesta_que_uno_se_dio_a_si_mismo_se_recoge()
+    {
+        AskResult queued = await _channel.AskAsync(A, A, "¿céntimos o euros?", null, null, null, 0);
+        await _channel.RespondAsync(A, queued.RequestId, "céntimos", null);
+
+        AskResult collected = await _channel.AwaitResponseAsync(A, queued.RequestId, 5);
+
+        Assert.Equal("answered", collected.Outcome);
+        Assert.Equal("céntimos", collected.Response!.Body);
     }
 
     [Theory]

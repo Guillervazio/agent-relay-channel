@@ -45,5 +45,9 @@ internal static class ArcInstructions
 
         **Nunca esperéis los dos a la vez**: quemaríais los dos turnos sin que nadie avance. Si
         vas a preguntar algo que llevará tiempo, dilo con arc_note y sigue trabajando.
+
+        Puedes escribirte a ti mismo para dejarte algo pendiente del turno que viene, con
+        arc_note o con arc_ask y wait a 0. Lo que no puedes es esperar tu propia respuesta: el
+        único que podría darla serías tú, esperando.
         """;
 }

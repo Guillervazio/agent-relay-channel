@@ -37,16 +37,14 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         string? threadId, int? wait, CancellationToken ct = default)
     {
         ValidateAgent(to, ArcErrors.BadRecipient);
-        if (to == from)
-        {
-            throw new ChannelException(ArcErrors.SelfAddressed, "Un agente no puede enviarse peticiones a sí mismo.", 422);
-        }
-
         ValidateBody(body);
 
         // Antes de insertar: un 'wait' fuera de rango no debe dejar la petición
         // creada en el canal y contestar 422 a quien la creó.
         int seconds = ValidateWait(wait);
+
+        // Después de validar la espera, porque es sobre ella sobre lo que decide.
+        RefuseWaitingOnOneself(from, to!, seconds);
 
         string requestId = "req_" + Guid.NewGuid().ToString("n")[..16];
         string thread = Blank(threadId) ?? "thr_" + Guid.NewGuid().ToString("n")[..16];
@@ -108,6 +106,10 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         Message? response = await store.GetResponseForAsync(requestId, ct);
         if (response is null && seconds > 0)
         {
+            // Aquí y no arriba: una respuesta que ya existe se recoge siempre, incluso la que
+            // el llamante se dio a sí mismo en otro turno. Lo que se niega es bloquear.
+            RefuseWaitingOnOneself(request.From, request.To, seconds);
+
             response = await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct)
                        ?? await store.GetResponseForAsync(requestId, ct);
         }
@@ -285,6 +287,27 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         }
 
         return seconds;
+    }
+
+    /// <summary>
+    /// Un agente puede dejarse una petición en su propio buzón: es lo que un aviso ya hacía, y
+    /// uno que sólo existe durante su turno tiene motivo para dejarse trabajo para el siguiente.
+    /// Lo que no puede es esperar su propia respuesta — el único que podría contestarla es el que
+    /// está bloqueado esperando, así que el plazo se agota siempre. Negarlo es decírselo en el
+    /// acto en vez de gastarle el turno en una espera que no podía terminar de otra forma.
+    /// </summary>
+    /// <remarks>
+    /// Va en las dos puertas por las que se espera una respuesta. Si estuviera sólo en
+    /// <c>AskAsync</c>, encolar con <c>wait</c> a 0 y esperar después con <c>AwaitResponseAsync</c>
+    /// la esquivaría en dos llamadas.
+    /// </remarks>
+    private static void RefuseWaitingOnOneself(string from, string to, int seconds)
+    {
+        if (to == from && seconds > 0)
+        {
+            throw new ChannelException(ArcErrors.SelfAddressed,
+                "Un agente no puede esperar su propia respuesta. Con 'wait' a 0 la petición queda en tu buzón.", 422);
+        }
     }
 
     public static void ValidateAgent(string? name, string code)

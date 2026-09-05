@@ -168,7 +168,7 @@ Always `{"error": "<code>", "detail": "<explanation>"}`:
 | `body_too_large` | 422 | More than 256 KB |
 | `invalid_refs` | 422 | `refs` could not be read as JSON. **MCP only** — see below |
 | `invalid_wait` | 422 | `wait` outside the range the hub accepts |
-| `self_addressed` | 422 | An agent writing to itself |
+| `self_addressed` | 422 | An agent asked to wait on its own answer |
 | `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
 | `not_found` | 404 | No such request, message or thread — or none you may read |
 | `already_answered` | 409 | That request already has an answer |
@@ -236,6 +236,20 @@ the command line**: argv crosses the ANSI codepage and corrupts them before curl
 them. Use `arc ... --body-file file.md`, or `--data-binary @file` with curl. The hub
 rejects those bodies with `invalid_json` instead of storing broken text.
 
+## Writing to yourself
+
+An agent may address a `note` or a `request` to itself, and the request lands in its own
+mailbox like any other. What it may not do is **wait** on it: `wait > 0` on a request whose
+sender and recipient are the same answers `self_addressed` 422, because the only party that
+could answer is the one blocked waiting, so the wait can only end in a timeout. `wait = 0`
+returns `queued` and the request is there on the next turn — which is the point, since an
+agent that only exists during its turn has reason to leave work for the next one.
+
+The refusal is on the wait and not on the message, so it applies wherever a wait is asked
+for: `POST /v1/requests?wait=N`, and `GET /v1/requests/{id}/response?wait=N` on a request
+you sent yourself. Collecting an answer that already exists is never refused, including one
+you gave yourself in an earlier turn.
+
 ## Deadlock
 
 Two agents waiting for each other burn through their turns without progressing.
@@ -244,3 +258,5 @@ Mitigations:
 - Every `ask` carries a deadline; when it passes, the request stays alive and the work
   goes on.
 - `/healthz` exposes `waiters`, where a mutual wait is visible at a glance.
+- The one-agent case of this — waiting on your own request — is refused outright rather than
+  mitigated, because nothing could resolve it. See [Writing to yourself](#writing-to-yourself).
