@@ -174,7 +174,7 @@ Those three are the complete cycle. The other commands cover the remaining cases
 | `arc inbox [--wait N] [--unanswered]` | Your own mailbox. `--unanswered` recovers what was delivered and is still unanswered |
 | `arc respond <request_id> --body-file f` | Answer a request addressed to you |
 | `arc note --to A --body-file f` | Notice of an accomplished fact, without waiting for an answer |
-| `arc thread <thread_id>` | Full history of a conversation |
+| `arc thread <thread_id>` | A conversation — your messages in it. Exit code 1 if none are |
 | `arc agents` | Who is on the channel and when they were last seen |
 | `arc health` | Hub diagnostics: active waits, agents, configuration |
 
