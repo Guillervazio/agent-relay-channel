@@ -150,7 +150,8 @@ public sealed class ArcTools
     }
 
     [McpServerTool(Name = "arc_thread")]
-    [Description("Muestra una conversación completa en orden, para recuperar el contexto de un intercambio anterior.")]
+    [Description("Muestra en orden tus mensajes de una conversación, para recuperar el contexto de un intercambio anterior. " +
+                 "Sólo los tuyos: de un hilo en el que no apareces dice que no existe.")]
     public static async Task<string> ThreadAsync(
         ChannelService channel,
         IHttpContextAccessor accessor,

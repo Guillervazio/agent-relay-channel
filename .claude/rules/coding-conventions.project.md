@@ -68,6 +68,32 @@ than a timestamp, and `Arc.Cli`, which has no composition root to inject anythin
 
 ## Deviations
 
+### A read that can be refused throws; it does not return `null`
+
+Replaces the base clause under *Missing versus refused*: "A query handler returns `null` for a
+resource that does not exist and the transport turns that into a 404. … **Do not use an exception
+for the query case.**"
+
+`ChannelService.MessageAsync` and `ChannelService.ThreadAsync` are reads, and both throw
+`ChannelException(not_found, …, 404)`. `GET /v1/messages/{id}` used to be the one place in this
+repository where the base clause literally applied — `store.GetAsync` returned `null` and the
+handler turned it into a 404 — and increment 07 reversed it on purpose.
+
+The clause assumes one transport. There are three here, and a `null` says only "nothing for you":
+each surface would then decide separately that nothing means 404, and that "not yours" and "not
+there" must be worded identically down to the detail string. That last part is
+[P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md)'s actual content, and three
+copies of it is the divergence [architecture.project.md](architecture.project.md) exists to
+prevent. It is also the shape
+[H011](../../docs/adr/house/H011-404-not-403-when-authorisation-filters-rows.md) already
+prescribes in its own decision line: *one exception raises both*.
+
+What this does not authorise: exceptions for reads in general. The observer's projections —
+`ListAgentsAsync`, `GetRecentAsync`, `ListThreadsAsync` — return their data or an empty list and
+throw nothing, because they refuse nobody. **The test is whether the read can be refused at all.**
+Where it cannot, `null` or an empty list is still the answer, and an exception is control flow
+wearing an error's clothes.
+
 ### Strongly typed identifiers
 
 Replaces the base clause under *Domain models*: "Identifiers: strongly typed, never a bare

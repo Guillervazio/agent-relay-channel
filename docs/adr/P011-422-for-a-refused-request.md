@@ -33,4 +33,13 @@ seconds a 300-second wait that came back looking like an ordinary timeout.
 Treating the move as a breaking change requiring `/v2`. Per
 `.claude/rules/protocol.project.md`, changing the status an existing error answers with *is*
 breaking — so this one is taken knowingly, before there is a client outside this repository, and
-`docs/PROTOCOL.md` changes in the same commit. After that, the rule applies without exception.
+`docs/PROTOCOL.md` changes in the same commit.
+
+**"Before there is an outside client" is spent, and it is not a door that reopens.** It was true
+once, in this record, and quoting it again is quoting a fact about a repository that no longer
+holds. `.claude/rules/protocol.project.md` is the authority on what is breaking and on the single
+exception it allows — a refusal no honest client could hit, which is how increment 07 narrowed two
+read routes without a `/v2`
+([P016](P016-a-message-is-read-by-its-two-ends.md)). **This record's own change would not qualify
+under it**: a status moving from 400 to 422 is one an honest client hits on its first mistake.
+Two different escape hatches, one of them closed.

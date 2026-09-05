@@ -81,6 +81,10 @@ nobody. They now go through `ChannelService.MessageAsync` and `ChannelService.Th
 `ArcTools.ThreadAsync` no longer reaches through `channel.Store` —
 [P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md).
 
+`ChannelService.Store` is still public and `ArcTools.AgentsAsync` still goes through it for
+`ListAgentsAsync`. That is the same list above reached by another door, not a second licence: what
+travels through `channel.Store` must be an entry on it, and `arc_agents` is one.
+
 What this does not authorise: adding to that list. The test for a new direct read is whether it
 would answer **the same thing to every caller**. The moment the answer depends on who is asking it
 is an operation, and the reason is this section's own: put it in a surface, and the other two
@@ -90,6 +94,18 @@ surfaces will decide it differently or not at all.
 
 A new operation appears in REST, in MCP and in the CLI, or this appendix says why not. A surface
 that quietly lacks an operation is how the three stop being the same channel.
+
+**`ChannelService.MessageAsync` is REST's alone, and here is why not.** `GET /v1/messages/{id}`
+exists to make the `Location` of a 202 resolvable: a REST client whose `wait` ran out has to be
+able to find the request it just created without rebuilding the URL. MCP and the CLI reach that
+same thing through `arc_await` and `arc await`, which take the request id and return the answer,
+so neither has ever had a reason to fetch a message by id. It became a channel operation in
+increment 07 only because it now decides who may read it — the operation is not new, the
+authorisation is.
+
+What this does not authorise: leaving the next one absent. This entry exists because "the appendix
+says why not" is satisfied by writing the reason down, and an operation missing from two surfaces
+with no entry here is the failure the section names, not a smaller version of it.
 
 ## No new architectural patterns
 

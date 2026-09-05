@@ -65,6 +65,24 @@ to what it was always meant to be.** Its list of direct `MessageStore` reads had
 took a decision, and the rule said so and left them there. The test is now written down: a direct
 read is a projection only if it would answer **the same thing to every caller**.
 
+## What the close left false, and how
+
+The reconciliation ran before the close and still shipped four contradictions into `master`. They
+were found afterwards by the `rules-reviewer` subagent, and the pattern in all four is the same
+mistake: **the rules were searched for the claims expected to be false, not read for the ones that
+newly govern the code.**
+
+| What was left false | Why the search missed it |
+|---|---|
+| `architecture.project.md`: *a channel operation ships on all three surfaces*. `MessageAsync` ships on REST alone | The rule was not made false by an edit — it started **applying**. `GET /v1/messages/{id}` had been exempt as a projection, and taking away the exemption is what handed it to a rule nobody had reason to grep for |
+| `P011`: *after that, the rule applies without exception* — and increment 07 wrote an exception | The search was for claims about authorisation and projections. This one is about breaking changes, in a record about 422 versus 400, and nothing in it names a route |
+| `shared/coding-conventions.md`: *do not use an exception for the query case*. Both new reads throw | It is in a **base**, and the search covered `.claude/rules/*.project.md` and the decision records. The base is where a clause governs without ever having been written for this project |
+| `README.md` and `ArcTools`' `[Description]` both still promised the whole conversation | `PROTOCOL.md` was updated in the same commit, as its rule demands, and updating the specified copy felt like updating the copies. The tool's description is the worse of the two: P016 makes the MCP surface's wording load-bearing, and that is the wording |
+
+Fixed in `docs/what-the-close-left-false`, with the base clause taking a `## Deviations` entry
+rather than a quiet exception, and the operation-on-one-surface taking the *say why not* the rule
+already offered.
+
 ## What this closed, and what it did not
 
 Closed: the finding. Removed from [backlog.md](../backlog.md), which is why it is quoted here.
