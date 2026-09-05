@@ -63,11 +63,19 @@ independently of it:
 | Setting | Derived from | What breaks otherwise |
 |---|---|---|
 | `KeepAliveTimeout` | `ARC_MAX_WAIT` plus a margin | Kestrel closes the connection under a poll that is still legitimately waiting |
-| `MaxRequestBodySize` | `MessageStore.MaxBodyBytes * 2` | The store's own limit becomes unreachable: Kestrel cuts the request off first, with a different error and no `body_too_large` code. The factor of two is the JSON around the body, not slack |
+| `MaxRequestBodySize` | `MessageStore.MaxBodyBytes * 2` | The store's own limit becomes unreachable: Kestrel cuts the request off first, and `HubApp` renders that as `invalid_json` **400**, not `body_too_large` 422 |
 | `MinResponseDataRate = null` | The SSE heartbeat interval | The default minimum rate kills an observer stream that only sends a heartbeat every two seconds |
 
-Change `ARC_MAX_WAIT`'s ceiling or the body limit and the derived setting moves in the same
-commit.
+The factor of two was the JSON around the body. **Since increment 08 it is also the room `refs`
+has**, because `refs` carries no limit of its own ([P017](../../docs/adr/P017-refs-is-any-json-value.md))
+— so a legal 256 KB body plus large `refs` is cut off by Kestrel and comes back as `invalid_json`
+400, which is the failure the row's third column exists to describe rather than one it prevents.
+
+That also makes the number **published contract**: `PROTOCOL.md` states the 512 KB. Change
+`ARC_MAX_WAIT`'s ceiling or the body limit and the derived setting moves in the same commit — and
+if `MaxRequestBodySize` is what moves, `docs/PROTOCOL.md` moves with it
+([protocol.project.md](protocol.project.md)), because **lowering it refuses what a published route
+used to answer**. Raising it does not.
 
 **Nothing exercises a wait longer than 60 seconds.** The longest smoke waits 60; the keep-alive
 derivation is therefore unverified above that, and it is in `docs/backlog.md` with the trigger

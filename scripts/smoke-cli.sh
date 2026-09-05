@@ -136,6 +136,27 @@ check "un hilo ajeno devuelve código 1, no un hilo vacío con código 0" $?
 grep -q "not_found" "$WORK/hilo-c.txt" && ! grep -q "céntimos" "$WORK/hilo-c.txt"
 check "y no deja caer ningún cuerpo por el camino" $?
 
+echo "== 6. Escribirse a uno mismo =="
+# Los códigos de salida son contrato, y esta es la pregunta que un agente hace
+# con ellos. Un ask con --wait 0 sale con 3 sea a quien sea: 3 no es un fallo,
+# significa que la petición sigue viva en un buzón. Aquí, en el propio.
+ARC_AGENT="$A" "$ARC" ask --to "$A" --body-file "$WORK/pregunta.md" --wait 0 > "$WORK/propia.txt" 2>&1
+[ $? -eq 3 ]
+check "una petición a uno mismo con --wait 0 sale con 3, como cualquier otra encolada" $?
+
+propia_id=$(grep -o 'req_[0-9a-f]*' "$WORK/propia.txt" | head -n1)
+ARC_AGENT="$A" "$ARC" inbox --json 2>/dev/null | grep -q "$propia_id"
+check "y esa misma petición está en el buzón de quien la mandó" $?
+
+# Con espera es un 422 del hub, que el CLI traduce a 1. No es 3: no llegó a
+# haber espera, y un agente que confundiera los dos volvería a intentarlo.
+ARC_AGENT="$A" "$ARC" ask --to "$A" --body-file "$WORK/pregunta.md" --wait 5 > "$WORK/propia-espera.txt" 2>&1
+[ $? -eq 1 ]
+check "pedir espera sobre uno mismo es 1, no el 3 de un plazo agotado" $?
+
+grep -q "self_addressed" "$WORK/propia-espera.txt"
+check "y dice cuál fue el motivo" $?
+
 echo
 echo "$pass correctas, $fail fallidas"
 [ "$fail" -eq 0 ]

@@ -30,13 +30,26 @@ public static class ArcErrors
     /// <summary>El cuerpo de la petición no es JSON válido, o no llegó como UTF-8.</summary>
     public const string InvalidJson = "invalid_json";
 
-    /// <summary><c>refs</c> no es un objeto JSON válido.</summary>
+    /// <summary>
+    /// <c>refs</c> no se pudo leer como JSON. <c>refs</c> es cualquier valor JSON, no sólo un
+    /// objeto, así que esto no habla de su forma sino de que no pudo parsearse.
+    /// </summary>
+    /// <remarks>
+    /// Sólo MCP puede emitirlo, y es la forma del cable y no un olvido: allí <c>refs</c> llega
+    /// como cadena aparte y falla sola. En REST viaja dentro del cuerpo, de modo que unas refs
+    /// rotas son un cuerpo roto y contestan <see cref="InvalidJson"/>; el CLI las lee antes de
+    /// enviar nada y sale con 2 sin llegar al hub.
+    /// </remarks>
     public const string InvalidRefs = "invalid_refs";
 
     /// <summary><c>wait</c> fuera del rango que admite el hub.</summary>
     public const string InvalidWait = "invalid_wait";
 
-    /// <summary>Un agente se escribe a sí mismo.</summary>
+    /// <summary>
+    /// Un agente pide esperar su propia respuesta. Escribirse a sí mismo sí vale — un aviso
+    /// siempre pudo, y una petición con <c>wait</c> a 0 queda en el buzón del que la manda —;
+    /// lo que no vale es bloquearse esperando a quien está bloqueado.
+    /// </summary>
     public const string SelfAddressed = "self_addressed";
 
     /// <summary>Buzón ajeno, o responder algo que no va dirigido a ti.</summary>

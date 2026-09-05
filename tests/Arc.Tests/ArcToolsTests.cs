@@ -98,7 +98,24 @@ public sealed class ArcToolsTests : IAsyncLifetime
         ChannelException error = await Assert.ThrowsAsync<ChannelException>(
             () => ArcTools.NoteAsync(_channel, As(A), B, "rama subida", refs: "{roto"));
 
-        Assert.Equal(ArcErrors.InvalidRefs, error.Code);
+        // El literal, no la constante: una aserción contra ArcErrors.InvalidRefs pasa
+        // justamente cuando alguien cambia el código publicado — H012.
+        Assert.Equal("invalid_refs", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    // Es la única superficie que puede emitir invalid_refs: MCP recibe refs como cadena
+    // aparte, REST las lleva dentro del cuerpo y el CLI las lee antes de enviar nada.
+    [Theory]
+    [InlineData("[\"src/x.cs\",\"src/y.cs\"]")]
+    [InlineData("\"a1b2c3d\"")]
+    [InlineData("7")]
+    public async Task Unas_refs_que_no_son_un_objeto_viajan_igual(string refs)
+    {
+        await ArcTools.NoteAsync(_channel, As(A), B, "rama subida", refs: refs);
+
+        string inbox = await ArcTools.InboxAsync(_channel, As(B), wait: 0);
+        Assert.Contains(refs, inbox, StringComparison.Ordinal);
     }
 
     [Fact]

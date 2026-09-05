@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using Arc.Core;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Arc.Hub;
@@ -24,6 +25,21 @@ public sealed class ArcTools
             ? name
             : throw new ChannelException(ArcErrors.BadAgent,
                 "Este servidor MCP no sabe quién eres. Añade la cabecera X-ARC-Agent en la configuración del cliente.", 422);
+
+    /// <summary>
+    /// Una negativa del canal, dicha en la prosa que lee un modelo. Sin esto el SDK
+    /// contesta "An error occurred invoking 'arc_x'": el modelo se entera de que falló
+    /// y no de por qué, que en una superficie sin códigos de estado es enterarse de nada.
+    /// </summary>
+    /// <remarks>
+    /// Lleva el código además del detalle porque el código es lo estable: el detalle es
+    /// prosa que puede reescribirse, y <c>ArcErrors</c> es lo que no cambia de significado.
+    /// </remarks>
+    internal static CallToolResult Refusal(ChannelException exception) => new CallToolResult
+    {
+        IsError = true,
+        Content = [new TextContentBlock { Text = $"{exception.Code}: {exception.Message}" }]
+    };
 
     [McpServerTool(Name = "arc_ask")]
     [Description("Pregunta algo a otro agente y espera su respuesta. Bloquea hasta que conteste o venza el plazo. " +
@@ -218,7 +234,7 @@ public sealed class ArcTools
         }
         catch (JsonException exception)
         {
-            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser un objeto JSON válido: {exception.Message}", 422);
+            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser JSON válido: {exception.Message}", 422);
         }
     }
 }

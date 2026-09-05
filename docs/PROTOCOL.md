@@ -132,9 +132,14 @@ bounded and drops the oldest.
 }
 ```
 
-`refs` is a free-form JSON object. **Send references, not content**: both machines have
-a clone of the same repository, so a commit and a path are enough. The body is limited
-to 256 KB and the hub rejects anything beyond that.
+`refs` is **any JSON value**, stored and returned verbatim. An object is the convention and
+what every example here shows, but nothing rejects an array, a string or a number, and no
+client should be written expecting that they are refused.
+
+**Send references, not content**: both machines have a clone of the same repository, so a
+commit and a path are enough. The body is limited to 256 KB and the hub rejects anything
+beyond that; `refs` has no separate limit, so what caps it is the request as a whole, which
+Kestrel holds to 512 KB.
 
 ### Result of a request
 
@@ -161,12 +166,18 @@ Always `{"error": "<code>", "detail": "<explanation>"}`:
 | `bad_recipient` | 422 | `to` missing or malformed |
 | `empty_body` | 422 | The body is missing |
 | `body_too_large` | 422 | More than 256 KB |
-| `invalid_refs` | 422 | `refs` is not a valid JSON object |
+| `invalid_refs` | 422 | `refs` could not be read as JSON. **MCP only** — see below |
 | `invalid_wait` | 422 | `wait` outside the range the hub accepts |
-| `self_addressed` | 422 | An agent writing to itself |
+| `self_addressed` | 422 | An agent asked to wait on its own answer |
 | `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
 | `not_found` | 404 | No such request, message or thread — or none you may read |
 | `already_answered` | 409 | That request already has an answer |
+
+`invalid_refs` is reachable over MCP alone, and that is the shape of the wire rather than
+an omission: MCP takes `refs` as a string argument the hub parses on its own, so it can fail
+by itself. Over REST `refs` travels inside the request body, so malformed `refs` are a
+malformed body and answer `invalid_json` 400. The CLI parses `--refs` before it sends
+anything and exits 2 without reaching the hub.
 
 `400` is only for what could not be read. A request that arrived intact and that a rule
 said no to answers `422`: that way a client tells its own serialisation failure apart
@@ -187,6 +198,23 @@ model can read it:
 | `arc_note` | Announces without waiting for an answer. |
 | `arc_thread` | Retrieves a conversation — your messages in it. |
 | `arc_agents` | Lists who is on the channel. |
+
+### What a refusal looks like
+
+A tool that the channel refuses answers `isError: true` with one line of text:
+
+```
+self_addressed: Un agente no puede esperar su propia respuesta. Con 'wait' a 0 la peticion queda en tu buzon.
+```
+
+The code is the same one REST puts in `error`, and it leads. The sentence after it is the
+same `detail`, and like every other detail it is prose that may be reworded — key on the
+code, never on the wording. MCP has no status codes, so this line is the whole of what the
+caller gets; without the code in it, a model would learn only that something failed.
+
+`arc_thread` is the exception, and deliberately: it answers a thread that is not yours in
+ordinary prose rather than as an error, because saying *whether it exists* is what
+[the 404](#what-you-may-read) is chosen not to say.
 
 ### The handshake carries the channel's instructions
 
@@ -225,6 +253,20 @@ the command line**: argv crosses the ANSI codepage and corrupts them before curl
 them. Use `arc ... --body-file file.md`, or `--data-binary @file` with curl. The hub
 rejects those bodies with `invalid_json` instead of storing broken text.
 
+## Writing to yourself
+
+An agent may address a `note` or a `request` to itself, and the request lands in its own
+mailbox like any other. What it may not do is **wait** on it: `wait > 0` on a request whose
+sender and recipient are the same answers `self_addressed` 422, because the only party that
+could answer is the one blocked waiting, so the wait can only end in a timeout. `wait = 0`
+returns `queued` and the request is there on the next turn — which is the point, since an
+agent that only exists during its turn has reason to leave work for the next one.
+
+The refusal is on the wait and not on the message, so it applies wherever a wait is asked
+for: `POST /v1/requests?wait=N`, and `GET /v1/requests/{id}/response?wait=N` on a request
+you sent yourself. Collecting an answer that already exists is never refused, including one
+you gave yourself in an earlier turn.
+
 ## Deadlock
 
 Two agents waiting for each other burn through their turns without progressing.
@@ -233,3 +275,5 @@ Mitigations:
 - Every `ask` carries a deadline; when it passes, the request stays alive and the work
   goes on.
 - `/healthz` exposes `waiters`, where a mutual wait is visible at a glance.
+- The one-agent case of this — waiting on your own request — is refused outright rather than
+  mitigated, because nothing could resolve it. See [Writing to yourself](#writing-to-yourself).

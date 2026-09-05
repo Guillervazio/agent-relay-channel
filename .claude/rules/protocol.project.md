@@ -51,6 +51,40 @@ The exception is narrow on purpose: "the old behaviour was a defect" is availabl
 almost any change, and what keeps it honest is naming the client that breaks and showing it could
 only be an abusive one.
 
+### When tightening would be breaking, the document is the half that moves
+
+A contract that promises more than the code enforces has two repairs, and only one of them is
+cheap. Tightening the code to match the document is a new refusal, which the test above almost
+always rejects: the client that breaks is one that read an example rather than a rule nobody was
+enforcing, and that client is not abusive. **Widening the document to state what the code has
+always done is not breaking at all**, and it is the default repair.
+
+Increment 08 took it twice. `refs` was documented as a JSON *object* and nothing checked it, so
+the document now says any JSON value with the object as convention
+([P017](../../docs/adr/P017-refs-is-any-json-value.md)). `refs` also stayed uncapped while `body`
+is held to 256 KB, and a cap is a new refusal by the same test, so what changed is that the
+request-wide limit is now written down instead of discovered.
+
+**What this does not authorise: treating the document as the thing that yields whenever the code
+disagrees with it.** The question is which of the two an honest client could have relied on. Here
+the code was the wider of the two and had been for every released version, so no client could
+depend on the refusal that never happened. Where the document is the *narrower* half and clients
+have been obeying it, widening the code is adding a capability, and where the code is wrong about
+something a client can already observe — a status code, a field's presence — the code is what
+moves, `/v2` or not.
+
+### Narrowing when a code is emitted is not changing what it means
+
+`self_addressed` used to answer any request to oneself and now answers only a request to oneself
+that asks to *wait* ([P018](../../docs/adr/P018-an-agent-may-queue-work-for-itself.md)). The code
+is unchanged, its 422 is unchanged, and what it says when it arrives is unchanged — what changed
+is that fewer calls are refused. Accepting what used to be refused is the safe direction, and it
+is the same asymmetry as widening `AgentNamePattern`.
+
+The direction is the whole of the rule. Emitting an existing code **in a case it did not cover
+before** is the breaking half: a client branching on it now takes that branch somewhere it never
+did, which is indistinguishable from the code having changed meaning.
+
 ## What is not breaking
 
 * Adding an optional field. Clients ignore what they do not read.
@@ -101,6 +135,17 @@ REST, MCP and the CLI describe the same operations. Where they differ it is in i
 returns JSON, MCP returns prose a model reads, the CLI returns prose a person reads plus an exit
 code. A difference in *behaviour* between two surfaces is a bug in whichever one departed from
 `ChannelService` — see [architecture.project.md](architecture.project.md).
+
+**A difference that comes from how a surface carries a field is not such a bug.** `refs` arrives
+as a separate string argument in MCP, inside the body in REST, and is parsed before anything is
+sent in the CLI — so malformed `refs` are `invalid_refs` 422, `invalid_json` 400 and exit code 2
+respectively, and all three are right. What is a bug is a difference that comes from what the
+*channel* decides, because that lives in `ChannelService` and reaches all three.
+
+The price of the exception is disclosure: **a published error code reachable on only one surface
+says so in `PROTOCOL.md`, and says why.** `invalid_refs` does
+([P017](../../docs/adr/P017-refs-is-any-json-value.md)). A code that is unreachable everywhere,
+or reachable in one place and unexplained, is the defect — increment 08 found it twice.
 
 One thing is genuinely MCP's alone: the `initialize` handshake, and the `instructions` it carries
 ([P014](../../docs/adr/P014-the-channel-explains-itself-in-the-handshake.md)). REST has no

@@ -311,7 +311,127 @@ public sealed class HubEndpointTests : IAsyncLifetime
         Assert.DoesNotContain("codex-pc2", instructions, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ---------- Lo que decide el pipeline sobre refs y sobre uno mismo ----------
+
+    [Fact]
+    public async Task Unas_refs_que_no_son_un_objeto_se_aceptan_y_vuelven_intactas()
+    {
+        HttpClient client = Client(A);
+        HttpResponseMessage sent = await client.PostAsync("/v1/requests?wait=0", Json(
+            """{"to":"codex-pc2","body":"revisa estos dos","refs":["src/x.cs","src/y.cs"]}"""));
+
+        // 202 y no 200: encolar sin esperar es lo que 'queued' significa.
+        Assert.Equal(HttpStatusCode.Accepted, sent.StatusCode);
+
+        string inbox = await Client(B).GetStringAsync("/v1/inbox/codex-pc2?wait=0");
+        Assert.Contains("src/y.cs", inbox, StringComparison.Ordinal);
+    }
+
+    // Por REST unas refs rotas rompen el cuerpo entero, así que la respuesta correcta es
+    // la del cuerpo ilegible y no invalid_refs, que esta superficie no puede emitir.
+    [Fact]
+    public async Task Unas_refs_ilegibles_son_un_cuerpo_ilegible()
+    {
+        HttpResponseMessage response = await Client(A).PostAsync("/v1/requests?wait=0", Json(
+            """{"to":"codex-pc2","body":"x","refs":{roto}}"""));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("invalid_json", await ErrorCodeOf(response));
+    }
+
+    [Fact]
+    public async Task Una_peticion_a_uno_mismo_se_encola_y_llega_al_propio_buzon()
+    {
+        HttpClient client = Client(A);
+        HttpResponseMessage sent = await client.PostAsync("/v1/requests?wait=0", Json(
+            """{"to":"claude-pc1","body":"revisar el pin"}"""));
+
+        Assert.Equal(HttpStatusCode.Accepted, sent.StatusCode);
+
+        using JsonDocument result = JsonDocument.Parse(await sent.Content.ReadAsStringAsync());
+        Assert.Equal("queued", result.RootElement.GetProperty("outcome").GetString());
+
+        string id = result.RootElement.GetProperty("request_id").GetString()!;
+        Assert.Contains(id, await client.GetStringAsync("/v1/inbox/claude-pc1?wait=0"), StringComparison.Ordinal);
+    }
+
+    // Las dos puertas por las que se puede pedir una espera. Si sólo se cerrara la
+    // primera, encolar con wait 0 y esperar después la esquivaría en dos llamadas.
+    [Fact]
+    public async Task Ninguna_de_las_dos_puertas_deja_esperar_la_respuesta_de_uno_mismo()
+    {
+        HttpClient client = Client(A);
+
+        HttpResponseMessage directa = await client.PostAsync("/v1/requests?wait=5", Json(
+            """{"to":"claude-pc1","body":"revisar el pin"}"""));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, directa.StatusCode);
+        Assert.Equal("self_addressed", await ErrorCodeOf(directa));
+
+        HttpResponseMessage encolada = await client.PostAsync("/v1/requests?wait=0", Json(
+            """{"to":"claude-pc1","body":"revisar el pin"}"""));
+        using JsonDocument queued = JsonDocument.Parse(await encolada.Content.ReadAsStringAsync());
+        string id = queued.RootElement.GetProperty("request_id").GetString()!;
+
+        HttpResponseMessage segunda = await client.GetAsync($"/v1/requests/{id}/response?wait=5");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, segunda.StatusCode);
+        Assert.Equal("self_addressed", await ErrorCodeOf(segunda));
+    }
+
+    // ---------- Lo que MCP dice cuando el canal se niega ----------
+
+    // El SDK convierte cualquier excepción en "An error occurred invoking 'arc_x'":
+    // el modelo se entera de que falló y no de por qué, y en una superficie sin
+    // códigos de estado eso es enterarse de nada. Un filtro traduce la negativa.
+    [Fact]
+    public async Task Una_negativa_del_canal_llega_al_modelo_con_su_codigo()
+    {
+        string raw = await CallTool(A, """
+            {"name":"arc_note","arguments":{"to":"codex-pc2","body":"rama subida","refs":"{roto"}}
+            """);
+
+        Assert.Contains("invalid_refs", raw, StringComparison.Ordinal);
+        Assert.Contains("debe ser JSON", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("An error occurred", raw, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Y_dice_como_arreglarlo_cuando_hay_forma_de_arreglarlo()
+    {
+        string raw = await CallTool(A, """
+            {"name":"arc_ask","arguments":{"to":"claude-pc1","body":"revisar el pin","wait":5}}
+            """);
+
+        // Negar la espera sólo sirve si el que la pidió puede corregirse, y el que la
+        // pide aquí es un modelo que no ve códigos de estado.
+        Assert.Contains("self_addressed", raw, StringComparison.Ordinal);
+        Assert.Contains("propia respuesta", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("An error occurred", raw, StringComparison.Ordinal);
+    }
+
     // ---------- Utilidades ----------
+
+    /// <summary>Llama una herramienta MCP y devuelve la respuesta cruda, venga como JSON o como SSE.</summary>
+    private async Task<string> CallTool(string agent, string parameters)
+    {
+        HttpClient client = Client(agent);
+        client.DefaultRequestHeaders.Add("Accept", "application/json, text/event-stream");
+
+        await client.PostAsync("/mcp", Json(
+            """
+            {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+              "protocolVersion":"2025-06-18",
+              "capabilities":{},
+              "clientInfo":{"name":"arc-tests","version":"1.0"}}}
+            """));
+
+        HttpResponseMessage response = await client.PostAsync("/mcp", Json(
+            $$"""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{{parameters}}}"""));
+
+        return await response.Content.ReadAsStringAsync();
+    }
+
 
     /// <summary>Saca las instrucciones del resultado de initialize, venga como JSON o como SSE.</summary>
     private static string InstructionsIn(string raw)

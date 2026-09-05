@@ -73,7 +73,17 @@ directly. These are **read-only projections for the observer**: they take no dec
 rule, and change nothing, and they answer the same thing to every caller because the panel reads
 the whole channel by design.
 
-That is the whole licence, and it is now the whole list. **A read that has to decide who may see
+That is the whole licence, and it is now the whole list — with one addition increment 08 made
+permanent rather than removed. `ArcTools.ParseRefs` throws `invalid_refs` from the MCP surface,
+and it stays there because it is **binding, not a rule**: MCP is the only surface where `refs`
+arrives as a string of its own, so parsing it is the same work `HubApp` does when it turns a
+request body into a record. `ChannelService` never sees a string to reject.
+
+The boundary is that nothing else may join it. A check that could be written against the
+`JsonElement` rather than against the text is a rule, belongs in `ChannelService`, and the fact
+that one surface is more convenient is not an argument — see
+[P017](../../docs/adr/P017-refs-is-any-json-value.md), which declines to add exactly such a check
+for a different reason and would have put it in `ChannelService` had it added one. **A read that has to decide who may see
 it is not a projection — it is a channel operation**, and it belongs behind `ChannelService`.
 `GET /v1/messages/{id}` and `GET /v1/threads/{id}` were on the wrong side of that line until
 increment 07: they reached `store.GetAsync` and `store.GetThreadAsync` directly and authorised

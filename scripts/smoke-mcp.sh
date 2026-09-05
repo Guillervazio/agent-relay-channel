@@ -127,7 +127,61 @@ check "arc_thread le dice a un tercero lo mismo que de un hilo inventado" $?
 ! grep -q 'Aviso desde MCP' "$WORK/thread-c.out"
 check "y no deja caer el cuerpo en el texto que lee el modelo" $?
 
-echo "== 6. Identidad obligatoria también en MCP =="
+echo "== 6. Las refs, en la única superficie que puede rechazarlas =="
+# MCP recibe refs como cadena aparte y las parsea el hub, así que es la única
+# que puede contestar invalid_refs. Por REST unas refs rotas son un cuerpo roto.
+SESSION=""
+rpc "$A" "$WORK/init.json" "$WORK/init-refs.headers" > /dev/null
+SESSION=$(grep -i 'mcp-session-id' "$WORK/init-refs.headers" | tr -d '' | awk '{print $2}')
+rpc "$A" "$WORK/ready.json" > /dev/null
+
+cat > "$WORK/refs-rotas.json" <<'JSON'
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"arc_note","arguments":{"to":"codex-pc2","body":"rama subida","refs":"{roto"}}}
+JSON
+rpc "$A" "$WORK/refs-rotas.json" > "$WORK/refs-rotas.out"
+grep -q 'invalid_refs' "$WORK/refs-rotas.out"
+check "unas refs ilegibles se rechazan con su código" $?
+
+# Esta es la que importa: sin el filtro, el SDK contesta "An error occurred
+# invoking 'arc_note'" y el modelo se entera de que falló, no de por qué.
+! grep -q 'An error occurred' "$WORK/refs-rotas.out"
+check "y no con la frase genérica del SDK, que no dice nada" $?
+
+! grep -q 'Aviso enviado' "$WORK/refs-rotas.out"
+check "y el aviso no sale sin ellas, que era el fallo que importaba" $?
+
+# El contrato prometía un objeto y nada lo comprobaba. Dice ya lo que el código
+# hace: cualquier valor JSON, y el objeto como convención.
+cat > "$WORK/refs-array.json" <<'JSON'
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"arc_note","arguments":{"to":"codex-pc2","body":"revisa estos dos","refs":"[\"src/x.cs\",\"src/y.cs\"]"}}}
+JSON
+rpc "$A" "$WORK/refs-array.json" > "$WORK/refs-array.out"
+grep -q 'Aviso enviado' "$WORK/refs-array.out"
+check "unas refs que son un array salen igual" $?
+
+echo "== 7. Escribirse a uno mismo =="
+# Un aviso a uno mismo siempre pudo; una petición, no. Ahora las dos pueden y lo
+# que se niega es la espera, que es lo único que no podía terminar.
+cat > "$WORK/propia.json" <<'JSON'
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"arc_ask","arguments":{"to":"claude-pc1","body":"revisar el pin","wait":0}}}
+JSON
+rpc "$A" "$WORK/propia.json" > "$WORK/propia.out"
+grep -q 'req_' "$WORK/propia.out"
+check "arc_ask a uno mismo con wait 0 encola la petición" $?
+
+cat > "$WORK/propia-espera.json" <<'JSON'
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"arc_ask","arguments":{"to":"claude-pc1","body":"revisar el pin","wait":5}}}
+JSON
+rpc "$A" "$WORK/propia-espera.json" > "$WORK/propia-espera.out"
+! grep -q 'req_' "$WORK/propia-espera.out"
+check "y con espera se niega en vez de gastar el turno" $?
+
+# Negar la espera sólo sirve si el que la pidió puede corregirse, y aquí el que
+# la pide es un modelo: la negativa tiene que decirle qué hacer en su lugar.
+grep -q 'self_addressed' "$WORK/propia-espera.out"
+check "y le dice con qué código, no sólo que algo fue mal" $?
+
+echo "== 8. Identidad obligatoria también en MCP =="
 SESSION=""
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/mcp" \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
