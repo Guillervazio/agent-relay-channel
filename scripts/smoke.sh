@@ -16,6 +16,7 @@ URL="${ARC_URL:-http://127.0.0.1:8765}"
 TOKEN="${ARC_TOKEN:-}"
 A="${ARC_A:-claude-pc1}"
 B="${ARC_B:-codex-pc2}"
+C="${ARC_C:-tercero-pc3}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -164,6 +165,31 @@ check "un 'wait' fuera de rango se rechaza, no se recorta" $?
 # Y no deja la petición creada por el camino.
 [ "$(curl -s "$URL/v1/inbox/$B" "${hdr[@]}" -H "X-ARC-Agent: $B" | grep -c '"x"')" = "0" ]
 check "una petición rechazada por el 'wait' no llega al buzón" $?
+
+echo "== 6. Un tercero que sabe el identificador =="
+# Los identificadores son 64 bits aleatorios y cada listado de hilos los reparte,
+# así que conocer uno no puede ser lo que dé derecho a leerlo.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/messages/$req_id" "${hdr[@]}" -H "X-ARC-Agent: $C")" = "404" ]
+check "un mensaje ajeno es 404 para quien no es ninguno de sus dos extremos" $?
+
+# Y el 404 entero, no sólo el código: un detalle distinto diría por la prosa que
+# ese identificador existe, que es justo lo que el código de estado oculta.
+ajeno=$(curl -s "$URL/v1/messages/$req_id" "${hdr[@]}" -H "X-ARC-Agent: $C")
+inventado=$(curl -s "$URL/v1/messages/req_0000000000000000" "${hdr[@]}" -H "X-ARC-Agent: $C")
+[ "$ajeno" = "$inventado" ]
+check "el mensaje ajeno y el inexistente contestan lo mismo, palabra por palabra" $?
+
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/threads/$thread_id" "${hdr[@]}" -H "X-ARC-Agent: $C")" = "404" ]
+check "un hilo en el que no apareces es 404" $?
+
+# La otra mitad: cerrar la puerta no puede haber cerrado la de sus dueños.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/messages/$req_id" "${hdr[@]}" -H "X-ARC-Agent: $B")" = "200" ]
+check "el destinatario sigue leyendo su mensaje" $?
+
+# El panel es un lector deliberado del canal entero sobre el mismo token: si esto
+# dejara de ser cierto sin que nadie lo decidiera, esta suite tiene que enterarse.
+curl -s "$URL/v1/observe/history" "${hdr[@]}" | grep -q "$req_id"
+check "/v1/observe sigue viendo el canal entero, que es lo que es" $?
 
 echo
 echo "$pass correctas, $fail fallidas"

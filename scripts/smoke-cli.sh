@@ -18,6 +18,7 @@ fi
 export ARC_URL="${ARC_URL:-http://127.0.0.1:8765}"
 A="${ARC_A:-claude-pc1}"
 B="${ARC_B:-codex-pc2}"
+C="${ARC_C:-tercero-pc3}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -118,6 +119,22 @@ check "un --refs-file inexistente devuelve código 2" $?
 after=$(ARC_AGENT="$B" "$ARC" inbox --json 2>/dev/null | grep -c 'req_' || true)
 [ "$before" = "$after" ]
 check "ninguno de los dos llegó a enviarse" $?
+
+echo "== 5. El hilo, visto por quien no está en él =="
+thread_id=$(jget "['messages'][0]['thread_id']" < "$WORK/inbox.json")
+
+ARC_AGENT="$B" "$ARC" thread "$thread_id" > "$WORK/hilo-b.txt" 2>&1
+[ $? -eq 0 ] && grep -q "céntimos" "$WORK/hilo-b.txt"
+check "el destinatario lee el hilo y ve los cuerpos" $?
+
+# Un 404 llega al agente como código 1 con el motivo por stderr, no como un hilo
+# vacío que se confundiría con una conversación que aún no ha empezado.
+ARC_AGENT="$C" "$ARC" thread "$thread_id" > "$WORK/hilo-c.txt" 2>&1
+[ $? -eq 1 ]
+check "un hilo ajeno devuelve código 1, no un hilo vacío con código 0" $?
+
+grep -q "not_found" "$WORK/hilo-c.txt" && ! grep -q "céntimos" "$WORK/hilo-c.txt"
+check "y no deja caer ningún cuerpo por el camino" $?
 
 echo
 echo "$pass correctas, $fail fallidas"

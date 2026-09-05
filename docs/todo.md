@@ -22,7 +22,7 @@ the record and the README have to say so in those words.
 | # | Phase | Status | Commit |
 |---|---|---|---|
 | 1 | The two reads become channel operations, and answer 404 to a stranger | done | this commit |
-| 2 | The suites drive the refusal against a running hub, on all three surfaces | pending | — |
+| 2 | The suites drive the refusal against a running hub, on all three surfaces | done | this commit |
 
 Phase 2 is separate because the defect being closed is one no unit test could have caught: the
 routes were correct in isolation and wrong in composition, and what proves them fixed is a third
