@@ -28,6 +28,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $ruleName = "ARC hub (puerto $Port)"
 
+. "$PSScriptRoot/ArcHost.ps1"
+
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     (New-Object Security.Principal.WindowsPrincipal $identity).IsInRole(
@@ -73,7 +75,7 @@ if (-not (Test-Path $exe)) {
 }
 
 if (-not $Token) {
-    $Token = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
+    $Token = New-ArcToken
     Write-Host ''
     Write-Host 'Token generado (guárdalo, lo necesitan los dos agentes):' -ForegroundColor Yellow
     Write-Host "  $Token" -ForegroundColor Yellow
@@ -108,9 +110,19 @@ if ($health -and $health.status -eq 'ok') {
     Write-Host "Servicio creado, pero /healthz aún no responde. Revisa: Get-Service $ServiceName" -ForegroundColor Yellow
 }
 
-$ip = (Get-NetIPAddress -AddressFamily IPv4 |
-    Where-Object { $_.IPAddress -notlike '127.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
-    Select-Object -First 1).IPAddress
+$candidatas = @(Get-ArcLanAddress)
+
+Write-Host ''
+if ($candidatas.Count -eq 0) {
+    Write-Host 'No he sabido por qué interfaz sales a la red: ninguna tiene puerta de enlace.' -ForegroundColor Yellow
+    Write-Host 'Mira tu IP con Get-NetIPConfiguration y ponla tú en ARC_URL.' -ForegroundColor Yellow
+    $ip = '<la IP de esta máquina>'
+} else {
+    $ip = $candidatas[0]
+    if ($candidatas.Count -gt 1) {
+        Write-Host "Hay más de una salida a la red; pongo la primera. Las otras: $($candidatas[1..($candidatas.Count - 1)] -join ', ')" -ForegroundColor DarkGray
+    }
+}
 
 Write-Host ''
 Write-Host 'Configura los agentes con:'

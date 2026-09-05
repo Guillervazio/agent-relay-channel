@@ -42,13 +42,13 @@ And only if you are going to run the smoke tests, which are shell scripts:
 
 | You need | What for | Check |
 |---|---|---|
-| **bash** | The five `.sh` scripts | Git Bash or WSL |
+| **bash** | The `.sh` scripts | Git Bash or WSL |
 | **curl** | `smoke.sh`, `smoke-mcp.sh` and `smoke-ui.sh` speak raw HTTP | `curl --version` |
-| **python 3** | The smokes parse JSON with it | `python --version` |
+| **Python 3.7+** | The smokes parse JSON with it | `python3 --version`, or `python --version` |
 
-> If `python` is not on the PATH, the smokes **do not fail with a clear message**:
-> they return empty fields and you will see checks fall over for no apparent reason.
-> Verify all three before interpreting a failure.
+> Either name works: the scripts try `python3` and then `python`, and check the version of
+> whichever they find. What they need and cannot find they say by name and stop, so a missing
+> interpreter is never reported as a failed check about something else.
 
 The other PC needs none of this: the client you copy over there is self-contained.
 
@@ -125,6 +125,28 @@ starting with a letter or a digit and at most 64 characters. One uppercase lette
 and the hub answers `422 bad_agent`.
 
 Check the connection with `arc health`.
+
+## The hub in a container
+
+Nothing in the channel is Windows; only the hosting above is. If the machine that will hold the
+hub runs Linux, or you would rather not install a service on it, the [Dockerfile](Dockerfile)
+builds and runs it with neither the .NET SDK nor PowerShell present:
+
+```bash
+docker build -t arc-hub .
+docker run -d --name arc-hub -p 8765:8765 -v arc-data:/data            -e ARC_TOKEN='<the secret>' arc-hub
+```
+
+`ARC_TOKEN` has no default and the hub refuses to start without it, saying so — the channel
+carries instructions between agents and has no business listening unauthenticated. The mailbox
+lives in the `/data` volume rather than in the container, so recreating the container does not
+take the channel with it, and `ARC_DB` and `ARC_URLS` are already set inside the image.
+
+**One replica, one volume.** [P003](docs/adr/P003-sqlite-on-a-file.md) assumes a single process
+owning the file: two containers over the same volume is not untested, it is unsupported.
+
+The agents are configured exactly as in step 3 above, with the address of the machine running the
+container.
 
 ## Using it from an agent
 
@@ -251,6 +273,27 @@ The page itself carries no data inside, and that is why it is served unauthentic
 is not. The panel is not an agent either: it does not show up in `arc agents` and it does not
 mark as delivered what it displays.
 
+## What the shared token does not protect
+
+One hub, one token, and everybody holding it is on the same channel. That is the deployment ARC
+is built for — one network, agents belonging to the same person or the same team — and three
+things follow from it that are worth knowing before you hand the token to somebody else:
+
+* **The agent name is attribution, never authorisation.** Any holder of the token can present any
+  name. The `403` an agent gets on somebody else's mailbox stops a mistake and a curious agent,
+  not a dishonest one — [P004](docs/adr/P004-one-token-and-an-agent-header.md).
+* **The whole channel is readable.** `/v1/observe` is what the panel is built on, and it shows
+  every conversation, not only yours.
+* **A message id is enough to read the message.** `GET /v1/messages/{id}` and
+  `GET /v1/threads/{id}` do not check who is asking. Ids are 64 random bits and every thread
+  listing hands them out, so that is obscurity, not access control. It is written down in
+  [docs/backlog.md](docs/backlog.md), and [P006](docs/adr/P006-403-on-another-agents-mailbox.md)
+  says so rather than claiming a confidentiality the channel does not have.
+
+Send references and not content — a branch and a commit rather than the file — and none of the
+three is a problem: it is the rule the channel asks for anyway, and it keeps the channel from
+being the place where anything confidential lives.
+
 ## Hub configuration
 
 | Variable | Default | What for |
@@ -340,6 +383,7 @@ Code and Codex CLI, both on your network.
 | [src/Arc.Cli](src/Arc.Cli) | The `arc` client |
 | [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
 | [scripts](scripts) | Starting, publishing, installation and smoke tests |
+| [Dockerfile](Dockerfile) | The hub on any machine with a container runtime |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
 | [docs/AGENTS.md](docs/AGENTS.md) | What the handshake already says, for a client that does not read it |
 
@@ -360,3 +404,10 @@ bash scripts/smoke-cli.sh    # the client exactly as an agent will use it
 bash scripts/smoke-mcp.sh    # MCP handshake, catalogue and a real call
 bash scripts/smoke-ui.sh     # the panel and its event stream
 ```
+
+All of it also runs on `ubuntu-latest` for every push to `master` and every pull request —
+[.github/workflows/gate.yml](.github/workflows/gate.yml).
+
+## Licence
+
+MIT — see [LICENSE](LICENSE). Use it, change it, ship it; keep the copyright notice.

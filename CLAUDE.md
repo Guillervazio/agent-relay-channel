@@ -18,11 +18,14 @@ dotnet run --project src/Arc.Hub   # the hub on :8765 (needs ARC_TOKEN, or ARC_A
 ./scripts/start-hub.ps1 -Lan       # …listening on the network, saying what the LAN still needs
 
 bash scripts/test-all.sh           # end to end: hub on :8791 + the four smokes
+
+docker build -t arc-hub .          # the hub with neither the SDK nor PowerShell on the host
 ```
 
-`test-all.sh` needs `curl` and **`python`** — not `python3`, which does not exist on the machine
-this was written on. `jget()` swallows stderr, so a missing interpreter surfaces as a content
-mismatch about something else. See [docs/backlog.md](docs/backlog.md).
+`test-all.sh` needs `curl` and **Python 3.7 or later under either name**: the scripts try
+`python3` and then `python`, because this machine has only the second and a Linux runner usually
+only the first. Anything they need and cannot find, they name before doing any work —
+[scripts/preflight.sh](scripts/preflight.sh).
 
 ---
 
@@ -49,7 +52,7 @@ logic in `ChannelService` with REST, MCP and the CLI as facades; SQLite on a fil
 token with the agent name as attribution and never authorisation; the identifier scheme; 403 on
 another agent's mailbox; the schema created at startup; the `SQLitePCLRaw` pin; the CLI's exit
 codes as contract; the unauthenticated observer page; the channel explaining itself in the MCP
-handshake rather than in every repository that adopts it. Do not re-litigate them; read the record
+handshake rather than in every repository that adopts it; MIT as the licence. Do not re-litigate them; read the record
 if you need the argument.
 
 ---
@@ -91,6 +94,9 @@ demand.
 
 **A green turn is not evidence the gate ran.** It arrives as a plugin, and every way it can stop
 running is silent — see
-[testing.project.md](.claude/rules/testing.project.md#nothing-in-this-repository-runs-the-gate).
+[testing.project.md](.claude/rules/testing.project.md#the-gate-that-runs-every-turn-is-not-in-this-repository).
+CI runs the same checks on `ubuntu-latest` for every push and pull request
+([.github/workflows/gate.yml](.github/workflows/gate.yml)), which answers a different question:
+whether any of it was ever Windows without saying so.
 
 Current work: [docs/todo.md](docs/todo.md). Finished increments: [docs/specs/](docs/specs/).

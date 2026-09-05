@@ -5,6 +5,10 @@
 #   ARC_URL=http://127.0.0.1:8765 ./scripts/smoke-ui.sh
 set -uo pipefail
 
+. "$(dirname "$0")/preflight.sh"
+require_python || exit 1
+require_cmd curl 'hablar HTTP con el hub' || exit 1
+
 URL="${ARC_URL:-http://127.0.0.1:8765}"
 TOKEN="${ARC_TOKEN:-}"
 A="${ARC_A:-claude-pc1}"
@@ -71,7 +75,7 @@ check "el mensaje sale por el flujo sin que nadie lo pida" $?
 # partiría el evento y el navegador leería JSON truncado— y que el cuerpo llegue
 # entero. Se comprueba sobre el JSON ya parseado: el serializador escapa los
 # acentos, así que buscarlos en crudo daría un falso negativo.
-python - "$WORK/stream.txt" <<'PY'
+"$PY" - "$WORK/stream.txt" <<'PY'
 import json, sys
 
 lines = open(sys.argv[1], encoding='utf-8').read().splitlines()
@@ -102,7 +106,7 @@ curl -s -m 5 "${obs[@]}" "$URL/v1/observe/threads" > "$WORK/threads.json"
 
 # El aviso de arriba abrió su propio hilo. Tiene que salir en el índice y, como a un
 # aviso no le contesta nadie, tiene que salir ya terminado.
-python - "$WORK/threads.json" "$WORK/note-out.json" <<'PY'
+"$PY" - "$WORK/threads.json" "$WORK/note-out.json" <<'PY'
 import json, sys
 
 threads = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -121,12 +125,12 @@ sys.exit(0 if thread['closed']
 PY
 check "el hilo del aviso sale terminado y con sus dos agentes" $?
 
-THREAD="$(python -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))['thread_id'])" "$WORK/note-out.json")"
+THREAD="$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))['thread_id'])" "$WORK/note-out.json")"
 
 # Elegir una conversación en el panel es esto: el mismo historial, acotado a un hilo.
 curl -s -m 5 "${obs[@]}" "$URL/v1/observe/history?thread=$THREAD" > "$WORK/one.json"
 
-python - "$WORK/one.json" "$THREAD" <<'PY'
+"$PY" - "$WORK/one.json" "$THREAD" <<'PY'
 import json, sys
 
 messages = json.load(open(sys.argv[1], encoding='utf-8'))['messages']

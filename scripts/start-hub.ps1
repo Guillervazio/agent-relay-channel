@@ -34,6 +34,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 
+. "$PSScriptRoot/ArcHost.ps1"
+
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw 'No encuentro dotnet en el PATH. El hub necesita el SDK de .NET 10.'
 }
@@ -51,11 +53,7 @@ if ([string]::IsNullOrWhiteSpace($Token)) {
     $origen = 'el que install-hub.ps1 dejó a nivel de máquina'
 }
 if ([string]::IsNullOrWhiteSpace($Token)) {
-    # El GetBytes estático es de .NET Core en adelante; Windows PowerShell corre sobre
-    # .NET Framework, donde no existe. Create() está en las dos ediciones.
-    $bytes = New-Object byte[] 24
-    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    $Token = [Convert]::ToBase64String($bytes)
+    $Token = New-ArcToken
     $origen = 'generado ahora, y sólo vive mientras dure este arranque'
 }
 
@@ -97,12 +95,7 @@ if ([string]::IsNullOrWhiteSpace($DatabasePath)) {
     $DatabasePath = Join-Path $root 'arc.db'
 }
 
-# La dirección que hay que dar a la otra PC es la de la interfaz por la que se sale a
-# la red, no la primera que no sea loopback: en una máquina con WSL, con una VPN o con
-# Hyper-V, esa primera es casi siempre una interfaz virtual que desde fuera no existe.
-$candidatas = @(Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-    Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
-    ForEach-Object { $_.IPv4Address.IPAddress })
+$candidatas = @(Get-ArcLanAddress)
 
 $visible = "http://127.0.0.1:$Port"
 if ($Lan -and $candidatas.Count -gt 0) { $visible = "http://$($candidatas[0])`:$Port" }

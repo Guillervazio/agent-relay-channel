@@ -23,11 +23,10 @@ so what is listed here is what is still true and still wrong.
 | **Three `H###` records link to `P###` records that do not travel with them.** H007, H011 and H013 each end with an `## Origin` line pointing at a `P` in `PlastipackInventoryApp` | A portable record linking to a non-portable one is the "each fact has one home" rule failing at the seam: in this repository those three links resolved to nothing, and `P007`, `P008` and `P011` here are entirely different decisions, so the link was not merely dead but misleading. The copies here were flattened to plain text naming the source project. **Due when:** report it to `dotnet-house`; the fix is a commit there, and it is the package's to make |
 | **Two mailbox polls by the same agent both receive the same messages.** `Signal` wakes every waiter on a key, and the key is the agent name; both re-read and both return the rows before either marks them delivered | The `UPDATE`'s `status = 'pending'` keeps the database coherent, so only one marks — but both HTTP responses carry the message. Duplicate delivery, not loss. Reachable by leaving two terminals waiting, which is the described usage. **Due when:** an agent reports handling a message twice, or the inbox read and its delivery marking are put in one transaction for another reason |
 | **A message is marked delivered before the client has it.** `InboxAsync` marks and then returns; a response lost in transit takes the messages out of the default mailbox | A `request` is recoverable with `?unanswered=true`. **A `note` is not recoverable at all** — the recovery query is restricted to requests — so a delivered notice whose response was lost is gone. Returned messages also carry `status: "pending"` although the row is already `delivered`. **Due when:** a note goes missing, or the channel is used over a link where a dropped response is expected |
+| **The service installation has still never been run end to end.** Increment 06 fixed the two failures `install-hub.ps1` had in Windows PowerShell and verified them in that console — the token generates, the address is the LAN's — but `sc.exe create`, the machine-level variables and the firewall rule need an administrator and change this machine, so nothing has executed them | The script's own two defects are gone; what is unverified is everything after its administrator check. Somebody following the README to the end is still the first to run it. **Due when:** the hub is next installed as a service, or a second person adopts it that way |
 | **`invalid_refs` promises a validation nothing performs, and REST cannot emit it.** Nothing checks that `refs` is a JSON *object*; over REST a malformed `refs` fails the whole body parse and comes back as `invalid_json` 400 | The code is published, frozen by a test, and its only throw site (`ArcTools.ParseRefs`) is never executed by any suite. `refs` is also unbounded while `body` is capped at 256 KB, so a 400 KB `refs` is accepted where a 257 KB body is refused. **Due when:** deciding what `refs` is. Either check `ValueKind` in `ChannelService` so all three surfaces share it, or correct the contract to say any JSON value — the two must not stay disagreeing |
 | **`note` to oneself is allowed; `ask` is not.** `AskAsync` refuses with `self_addressed`; `NoteAsync` has no such check | Two sibling operations differ with no comment, rule or record saying why. Whichever way it is settled, one of the two is currently wrong. **Due when:** somebody needs the answer. Note that forbidding it would be a new refusal on a published route |
 | **`MessageStatus.Expired` is published and never produced.** The enum has four values, the code writes three, and the observer panel already carries a label for the fourth | Changing a value of `MessageStatus` is breaking per [protocol.project.md](../.claude/rules/protocol.project.md), so the contract carries a state that means nothing. **Due when:** either something starts expiring messages, or the value is removed — and removing it is the breaking change, so it waits for a `/v2` |
-| **`install-hub.ps1` has never been run in Windows PowerShell, and fails there twice.** Installing without `-Token` — the path the README documents — dies with `MethodNotFound`: `RandomNumberGenerator::GetBytes(int)` is a .NET Core static and that console is .NET Framework. And the IP it prints for the agents to use is the first non-loopback one, which on this machine is WSL's `172.22.160.1` while the LAN's is `192.168.2.53` | Both were hit writing `scripts/start-hub.ps1`, which avoids them with `RandomNumberGenerator::Create()` and with the interface that has a default gateway, so the corrections are written down next door. They are not applied to the installer here because a fix to it changes what that script does, and this commit's subject is a different script. **Due when:** the next time the service is installed — anybody following the README to the end hits the first one |
-| **The smokes report a content mismatch when the problem is a missing interpreter.** `jget()` calls `python`, not `python3`, and swallows stderr with `2>/dev/null` | On this machine `python3` does not exist and `python` resolves to a conda environment on `PATH` by accident. A missing interpreter yields an empty string and the comparison fails talking about the wrong thing. **Due when:** the smokes run on a second machine, or `test-all.sh` enters CI. The fix, named in advance: a `require python` preflight that exits 1 with a sentence |
 
 ---
 
@@ -47,6 +46,23 @@ rediscovered as a bug.
   milliseconds and is the part of the suite most exposed to a slow machine.
   <br>**Due when:** that suite fails on timing, or the CLI gets the composition root it has none of
   today — the registry's case is a change to the wait mechanism, not to a timestamp.
+- **CI covers Linux only.** `.github/workflows/gate.yml` runs on `ubuntu-latest`; the machine
+  that develops this is the only thing that ever exercises Windows, and it does so by hand. A
+  Windows-specific regression reaches `master` unseen unless somebody runs the suite here first —
+  which the Stop hook does, when it is running.
+  <br>**Due when:** a second contributor pushes from a platform that is not Windows, or a defect
+  that only appears on Windows reaches `master`.
+- **The workflow has never run on GitHub's runners.** It was rehearsed by copying the working tree
+  into `mcr.microsoft.com/dotnet/sdk:10.0` and running `scripts/test-all.sh` there, which is a
+  rehearsal and not the thing: the runner has its own preinstalled toolchain, `actions/setup-dotnet`
+  resolves the SDK its own way, and `actions/checkout` applies `.gitattributes` rather than copying
+  a working tree.
+  <br>**Due when:** the branch is pushed. This one resolves itself on the first run, and the first
+  run is the test.
+- **The container image is not published anywhere.** Adopting the hub by container means cloning
+  the repository and building it.
+  <br>**Due when:** somebody asks for an image, or a release is cut that is meant to be installed
+  without a clone.
 - **The schema cannot change destructively.** `CREATE … IF NOT EXISTS` silently does nothing
   against an older table — [P007](adr/P007-the-schema-is-created-at-startup.md).
 - **Pull requests are opened by hand.** `origin` is
@@ -60,11 +76,6 @@ rediscovered as a bug.
 ## What is left, and what would make each of them due
 
 ### Waiting on evidence, not on effort
-
-- **CI.** There is no `.github/workflows/`. With one contributor and a Stop hook that blocks a
-  turn on a red build, CI would re-run what already ran on the only machine that matters.
-  <br>**Due when:** a second person can push, or a release is cut from a machine that is not this
-  one.
 
 - **A coverage number.** `coverlet.collector` is installed and nothing reads its output. The
   testing base deliberately sets no percentage, so adding a threshold would contradict a rule this
@@ -105,9 +116,6 @@ rediscovered as a bug.
 - **The demo token.** `demo/token.txt` and the two real `.mcp.json` are gitignored and were never
   committed, so this is about rotation and not about history.
   <br>**Due when:** the demo runs against a hub reachable off loopback.
-
-- **`LICENSE`.** There is none.
-  <br>**Due when:** the repository stops being private, or somebody outside asks to use it.
 
 - **The `SQLitePCLRaw` pin** — [P008](adr/P008-the-sqlitepclraw-pin.md). Read
   `Microsoft.Data.Sqlite`'s nuspec, **not** `dotnet list package --vulnerable`, which is clean

@@ -5,6 +5,10 @@
 #   ARC_URL=http://127.0.0.1:8765 ./scripts/smoke-mcp.sh
 set -uo pipefail
 
+. "$(dirname "$0")/preflight.sh"
+require_python || exit 1
+require_cmd curl 'hablar JSON-RPC con el hub' || exit 1
+
 URL="${ARC_URL:-http://127.0.0.1:8765}"
 TOKEN="${ARC_TOKEN:-}"
 A="${ARC_A:-claude-pc1}"
@@ -89,7 +93,7 @@ check "el aviso aparece en el buzón del destinatario" $?
 # El texto esperado viaja por fichero: en argv, Windows lo pasa por la codepage
 # ANSI y los acentos no sobreviven a la comparación.
 printf '%s' "$ACENTOS" > "$WORK/esperado.txt"
-python -c "
+"$PY" -c "
 import json,io,sys
 esperado = io.open(sys.argv[1], encoding='utf-8').read()
 mensajes = json.load(io.open(sys.argv[2], encoding='utf-8'))['messages']
