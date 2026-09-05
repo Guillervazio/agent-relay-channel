@@ -22,5 +22,7 @@ will pass.
 
 Read-only projections for the observer panel go straight to `MessageStore`, and that is the whole
 exception: no decision, no rule, nothing changed. A read that has to decide who may see it is a
-channel operation. `.claude/rules/architecture.project.md` draws the line, and names the two
-endpoints currently on the wrong side of it.
+channel operation — which is what took `GET /v1/messages/{id}` and `GET /v1/threads/{id}` back
+behind `ChannelService` in increment 07
+([P016](P016-a-message-is-read-by-its-two-ends.md)). `.claude/rules/architecture.project.md` draws
+the line and holds the current list.

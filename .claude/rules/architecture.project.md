@@ -68,17 +68,23 @@ person uses all three.
 
 ### The exception, named because it is real
 
-`Arc.Hub` calls `store.GetAsync`, `store.GetThreadAsync`, `store.ListAgentsAsync`,
-`store.GetRecentAsync` and `store.ListThreadsAsync` directly, and `ArcTools.ThreadAsync` reaches
-through `channel.Store`. These are **read-only projections for the observer**: they take no
-decision, enforce no rule, and change nothing.
+`Arc.Hub` calls `store.ListAgentsAsync`, `store.GetRecentAsync` and `store.ListThreadsAsync`
+directly. These are **read-only projections for the observer**: they take no decision, enforce no
+rule, and change nothing, and they answer the same thing to every caller because the panel reads
+the whole channel by design.
 
-That is the whole licence. A read that has to decide who may see it is not a projection — it is a
-channel operation, and it belongs behind `ChannelService`. Two of those direct reads are already
-on the wrong side of that line: `GET /v1/messages/{id}` and `GET /v1/threads/{id}` are served
-with **no authorisation at all**, so any authenticated agent reads any message body in the
-channel. That is recorded in `docs/backlog.md` as a finding, and it is the reason this paragraph
-names the boundary instead of leaving "projection" to taste.
+That is the whole licence, and it is now the whole list. **A read that has to decide who may see
+it is not a projection — it is a channel operation**, and it belongs behind `ChannelService`.
+`GET /v1/messages/{id}` and `GET /v1/threads/{id}` were on the wrong side of that line until
+increment 07: they reached `store.GetAsync` and `store.GetThreadAsync` directly and authorised
+nobody. They now go through `ChannelService.MessageAsync` and `ChannelService.ThreadAsync`, and
+`ArcTools.ThreadAsync` no longer reaches through `channel.Store` —
+[P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md).
+
+What this does not authorise: adding to that list. The test for a new direct read is whether it
+would answer **the same thing to every caller**. The moment the answer depends on who is asking it
+is an operation, and the reason is this section's own: put it in a surface, and the other two
+surfaces will decide it differently or not at all.
 
 ## A channel operation ships on all three surfaces
 

@@ -37,7 +37,7 @@ told about a new one.
 | Well formed, refused by a rule (unknown agent name, body too large, `wait` out of range) | 422 |
 | Missing or wrong `X-ARC-Token` | 401 |
 | Reading another agent's mailbox | 403 |
-| No such message, request or thread | 404 |
+| No such message, request or thread — or one you are not a party to | 404 |
 | Responding to a request that already has a response | 409 |
 
 422-versus-400 is [H013](../../docs/adr/house/H013-422-for-a-well-formed-request-that-fails-validation.md),
@@ -53,13 +53,28 @@ code answers 400, and it is the one whose request could not be read.
 the same pattern refusing the same shape in the body is `bad_recipient`. One validator answering
 two different statuses depending on where the value travelled is the incoherence H013 removes.
 
-## 403, not 404, on another agent's mailbox
+## 403 on a mailbox, 404 on a message
 
-Against [H011](../../docs/adr/house/H011-404-not-403-when-authorisation-filters-rows.md), for a
-reason that is a fact about this code rather than a preference — see
-[P006](../../docs/adr/P006-403-on-another-agents-mailbox.md). `/v1/agents` publishes every agent
-id to every authenticated caller, so a 404 would conceal nothing, while lying to an agent who
-mistyped their own name.
+Both are [H011](../../docs/adr/house/H011-404-not-403-when-authorisation-filters-rows.md) applied
+to two different facts, and the fact is what decides — not the shape of the route.
+
+The mailbox answers **403**, against H011's default, because `/v1/agents` publishes every agent id
+to every authenticated caller: a 404 would conceal nothing while lying to an agent who mistyped
+their own name — [P006](../../docs/adr/P006-403-on-another-agents-mailbox.md).
+
+`GET /v1/messages/{id}` and `GET /v1/threads/{id}` answer **404**, with H011, because a message id
+is published nowhere: a 403 would confirm that it exists. A thread is trimmed to the caller's own
+rows first, so appearing in a thread — which any agent can arrange by sending one note into it —
+is not what grants the history. [P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md).
+
+**The identical body is part of the rule, not a detail of it.** A 404 whose `detail` differs
+between "no such id" and "not yours" says in prose exactly what the status code was chosen not to
+say, and so does an MCP tool that words the two cases differently. The tests compare the whole
+body for that reason.
+
+What this does not authorise: reading either one as a preference to copy. A new route asks which
+fact holds for it — whether existence is already public — and answers accordingly. And none of it
+makes the channel confidential; see the *Identity is a header* section below, which is unchanged.
 
 ## Error codes are a published set
 
