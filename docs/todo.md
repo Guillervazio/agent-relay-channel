@@ -1,59 +1,55 @@
 # Current work
 
-## Increment 08 — promises the code did not keep
+**Nothing in progress.** Increments 01 to 08 are closed in [specs/](specs/).
 
-Two published promises that nothing enforced, and that had been sitting in
-[backlog.md](backlog.md) waiting for the same thing: somebody to decide what the contract actually
-says.
+**Last verified** (5 September 2026, at the close of increment 08):
 
-`PROTOCOL.md` calls `refs` "a free-form JSON object" and nothing anywhere checks that it is an
-object. The one code that would say so, `invalid_refs`, is published, frozen by a test, and thrown
-from a single site no suite reaches — and REST cannot emit it at all, because there `refs` travels
-inside the request body and a malformed one fails the whole parse as `invalid_json` 400.
+* `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
+* `dotnet test` — **119 passed, 0 failed, 0 skipped**, 1 project
+* `dotnet format --verify-no-changes` — clean
+* `dotnet restore --force` — clean, no advisory
+* `bash scripts/test-all.sh` — **four suites green, 95 checks** (37 REST, 22 CLI, 25 MCP, 11 UI)
+* the rules reconciled against the change rather than only where it edited: six clauses in five
+  files, the costliest in one this increment never touched
+* by hand against a running hub, reading the answers rather than their status codes: `arc_note`
+  with broken `refs` came back as `invalid_refs: 'refs' debe ser JSON válido: …`, and `arc_ask` to
+  oneself with `wait: 5` as `self_addressed: Un agente no puede esperar su propia respuesta…`.
+  Both had answered `An error occurred invoking 'arc_x'.` on the same hub before the filter —
+  which is how that finding was found at all
 
-`AskAsync` refuses a message to oneself with `self_addressed`; `NoteAsync` has no such check. Two
-sibling operations disagreed with no comment, rule or record saying why, so one of the two was
-wrong and nothing said which.
+**One thing this close cannot claim.** A unit test failed once under `test-all.sh` during this
+increment and has not reproduced in the twenty-odd runs since. Its name is unrecoverable because
+the suite piped `dotnet test` through `tail -3`; that pipe is gone. It is in
+[backlog.md](backlog.md) so the next occurrence is the second one.
 
-A third came out of verifying the first two against a real hub, and it is why they are in
-the same increment: **no refusal at all reached the model over MCP**. The SDK turns every
-exception into `An error occurred invoking 'arc_note'`, so `invalid_refs` was not merely
-unreachable over REST — over MCP it was emitted and then swallowed, and so was every other
-code. The one place that already worked around it, `arc_thread` answering in prose rather
-than throwing, was recorded in increment 07 as a decision about the 404 without anyone
-noticing it was also the symptom of this.
-
-Neither of the first two is fixed by tightening. **A new refusal on a published route is breaking**, and
-[protocol.project.md](../.claude/rules/protocol.project.md) sets the test: name the client that
-breaks and show it could only be an abusive one. A client sending `refs: ["a.cs"]` is not abusive,
-and neither is an agent leaving itself a question for its next turn. Both halves therefore close by
-**widening the contract to what the code already does**, and by writing down the part that stays
-refused and why it is not the same case.
-
-| # | Phase | Status | Commit |
-|---|---|---|---|
-| 1 | `refs` is any JSON value, and `invalid_refs` says which surface can emit it | done | `3f46a3e` |
-| 2 | An agent may queue a question to itself, and may not wait on it | done | this commit |
-| 3 | MCP says why it refused, instead of that something went wrong | done | `655ecca` |
-| 4 | The suites drive all three against a running hub, on the surfaces that can reach them | done | this commit |
-| 5 | Close: the records, the spec, and what the backlog no longer owes | pending | |
-
-**Every phase is closed in the same commit that updates its row.** The increment is closed by
-moving the narrative to [specs/](specs/) and leaving this file as it was.
+Everything increment 06 verified about hosting — the container, the SDK image, Windows PowerShell
+5.1, the installer's reachable half — was not re-run and is unaffected: this increment changed what
+the channel accepts and how MCP reports a refusal, and touched nothing about how the hub is
+started. Its record stands in
+[specs/06-a-machine-that-is-not-this-one.md](specs/06-a-machine-that-is-not-this-one.md).
 
 ---
 
-## Last verified before this increment
+## Opening the next one
 
-(5 September 2026, at the close of increment 07)
+This file becomes the plan: what the increment is for, and one row per phase with its commit.
+**Every phase is closed in the same commit that updates its row**, and the increment is closed by
+moving the narrative to [specs/](specs/) and leaving this file as it is now.
 
-* `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
-* `dotnet test` — **107 passed, 0 failed, 0 skipped**, 1 project
-* `dotnet format --verify-no-changes` — clean
-* `dotnet restore --force` — clean, no advisory
-* `bash scripts/test-all.sh` — **four suites green, 76 checks** (29 REST, 18 CLI, 18 MCP, 11 UI)
+## What is closest to due
 
-Everything increment 06 verified about hosting — the container, the SDK image, Windows PowerShell
-5.1, the installer's reachable half — is unaffected by this increment, which changes what the
-channel accepts and touches nothing about how the hub is started. Its record stands in
-[specs/06-a-machine-that-is-not-this-one.md](specs/06-a-machine-that-is-not-this-one.md).
+Nothing is committed to, and this is not a ranking — it is where [backlog.md](backlog.md) says a
+trigger is nearest, so the next decision is taken against something rather than from a blank page.
+Each entry there names what has to become true first; read those rather than this list.
+
+* **Three findings about delivery**, all reachable by the usage the README describes: two polls by
+  the same agent both receive the same messages, a message is marked delivered before the client
+  has it, and a lost `note` is unrecoverable because `?unanswered=true` covers only requests. Now
+  the oldest group still open by a wide margin, and the only one whose trigger is ordinary use
+  rather than a decision.
+* **The service installation has still never been run end to end.** Everything past
+  `install-hub.ps1`'s administrator check is unexecuted. Due the next time the hub is installed as
+  a service, which is also the first time somebody follows the README to the end.
+* **`MessageStatus.Expired` is published and never produced.** The last of the three "published and
+  unreachable" defects, and the only one that could not be closed in increment 08: removing a value
+  of `MessageStatus` is breaking, so it waits for a `/v2`.

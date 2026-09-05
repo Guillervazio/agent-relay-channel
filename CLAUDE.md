@@ -10,7 +10,7 @@ channel is HTTP long polling, not a broker. .NET 10, SQLite, three surfaces over
 
 ```bash
 dotnet build                       # build the solution
-dotnet test                        # the 107 tests; no container, no network
+dotnet test                        # the 119 tests; no container, no network
 dotnet format                      # apply .editorconfig
 dotnet run --project src/Arc.Hub   # the hub on :8765 (needs ARC_TOKEN, or ARC_ALLOW_ANONYMOUS=1)
 

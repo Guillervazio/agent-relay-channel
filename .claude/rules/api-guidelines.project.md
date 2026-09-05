@@ -130,19 +130,45 @@ request it was waiting on is still alive in the mailbox. Every long-lived handle
 Seven tools over the same `ChannelService`. A tool never reaches past it, never adds an operation
 the REST surface does not have, and never surfaces a raw exception — a model reads the text.
 
+**That last clause was false for five increments, and asserting it is what kept it invisible.** The
+SDK turns any exception a tool throws into `An error occurred invoking 'arc_x'`, so every refusal
+the channel makes — `invalid_refs`, `self_addressed`, `bad_recipient`, `not_found` — reached the
+model as the same English sentence with no code and no reason. The guarantee now lives in a
+`CallToolFilter` registered in `HubApp`, which translates `ChannelException` into
+`«code»: «detail»` once for all seven tools
+([P019](../../docs/adr/P019-a-refusal-a-model-cannot-read-is-not-a-refusal.md)).
+
+Two consequences worth keeping:
+
+* **A tool must not catch `ChannelException` itself.** The filter is the one translation, for the
+  same reason `ChannelService` is the one rule: seven copies drift. `ArcTools.ThreadAsync` returning
+  prose rather than throwing is the single exception, and it is not about errors — saying *whether
+  a thread exists* is what its 404 is chosen not to say
+  ([P016](../../docs/adr/P016-a-message-is-read-by-its-two-ends.md)).
+* **A test that asserts a refusal over MCP asserts the absence of that sentence too.** Checking only
+  that the call failed passes in exactly the state this fixed.
+
+**What this does not authorise: widening the filter past `ChannelException`.** Everything else is
+still an unhandled fault and still becomes the SDK's sentence, and that is correct — an unexpected
+exception's message is not written for a model and may carry detail a caller has no business
+reading. So the clause above is exact rather than absolute: a tool never surfaces a raw
+*`ChannelException`*.
+
 It does carry one thing REST has no equivalent for, and it is not an operation: the `initialize`
 handshake returns `ServerInstructions`, which is how the channel explains itself to the model at
 the other end ([P014](../../docs/adr/P014-the-channel-explains-itself-in-the-handshake.md)).
 
-Three kinds of prose, and each says only its own thing:
+Four kinds of prose, and each says only its own thing:
 
 * A tool's **`Description`** says *when to call that tool*, not what the tool is.
 * A tool's **output** names the next action, because a model that has just been told
   "no hay mensajes" needs to know whether to wait again.
 * **`ServerInstructions`** says how the channel is used at all — and nothing a single tool
   already says about itself, which is what the SDK's own guidance asks for.
+* A **refusal** leads with the error code and then the same `detail` REST returns. The code leads
+  because the code is what does not change meaning; MCP has no status line to carry it instead.
 
-All three are written for a model, not for a person. None of them is a place for a rule the
+All four are written for a model, not for a person. None of them is a place for a rule the
 channel enforces: that is `ChannelService`, reached by all three surfaces.
 
 ## What the base asks for that has no subject here

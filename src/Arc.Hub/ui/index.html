@@ -535,7 +535,9 @@
     if (message.subject && message.kind !== 'response') column.appendChild(el('div', 'subject', message.subject));
     column.appendChild(el('div', 'body', message.body));
 
-    if (message.refs) column.appendChild(el('pre', 'refs', JSON.stringify(message.refs)));
+    // Ni `!= null` ni una comprobación de verdad: refs es cualquier valor JSON desde P017,
+    // así que 0, false y "" son refs legales que un `if (message.refs)` no pintaba.
+    if (message.refs !== undefined && message.refs !== null) column.appendChild(el('pre', 'refs', JSON.stringify(message.refs)));
 
     const foot = el('div', 'foot');
     const pill = el('span', 'pill ' + message.status, STATUS[message.status] || message.status);

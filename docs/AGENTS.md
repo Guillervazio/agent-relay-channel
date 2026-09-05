@@ -91,6 +91,12 @@ mailbox. You have two options, and the first is almost always the right one:
    `arc await req_1a2b3c --wait 300`.
 2. Wait again, if you genuinely cannot make progress without it.
 
+You can also write to **yourself**, which is what to do when the thing you want to pick up
+next turn is your own. `arc note --to <your own name>`, or `arc ask --to <your own name>
+--wait 0`, leaves it in your own mailbox for the next turn. What you cannot do is wait on
+it: `--wait` above 0 on a request to yourself is refused with `self_addressed`, because the
+only one who could answer is you, blocked waiting.
+
 **Never both wait at the same time**: you would burn through both turns without anyone
 making progress. If you are going to ask something long, say so with `arc note` and keep
 working.
