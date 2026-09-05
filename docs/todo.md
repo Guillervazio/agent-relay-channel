@@ -9,6 +9,9 @@
 * `dotnet format --verify-no-changes` — clean
 * `dotnet restore --force` — clean, no advisory
 * `bash scripts/test-all.sh` — **four suites green, 66 checks** (24 REST, 15 CLI, 16 MCP, 11 UI)
+* `gate.yml` on GitHub's runners, which is the only verification this repository cannot perform:
+  green on PR #6 and on the merge into `master` — build, format, test and the four smokes, 67
+  seconds
 * the same suite **inside `mcr.microsoft.com/dotnet/sdk:10.0`** against a copy of the working
   tree — four suites, 66 checks, green: the first time any of it has run outside Windows
 * the container by hand, which no suite reaches: it refused to start with no `ARC_TOKEN` and said
@@ -36,8 +39,6 @@ Nothing is committed to, and this is not a ranking — it is where [backlog.md](
 trigger is nearest, so the next decision is taken against something rather than from a blank page.
 Each entry there names what has to become true first; read those rather than this list.
 
-* **The workflow has never run on GitHub's runners.** It resolves itself on the first push, and
-  the first push is the test.
 * **The channel has no confidentiality.** `GET /v1/messages/{id}` and `GET /v1/threads/{id}`
   perform no authorisation at all, which defeats the 403 `InboxAsync` raises and is why
   [P006](adr/P006-403-on-another-agents-mailbox.md) has to say the protection H011 assumes does

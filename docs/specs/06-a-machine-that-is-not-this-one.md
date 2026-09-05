@@ -76,6 +76,11 @@ Four entries left [backlog.md](../backlog.md) for this file:
   pull request.
 
 What did **not** close, and is now written down where it can be decided against: the service
-installation itself still has not been run end to end, CI covers Linux only, the image is not
-published anywhere, and the workflow has never executed on GitHub's own runners — only in a
-rehearsal of one.
+installation itself still has not been run end to end, CI covers Linux only, and the image is not
+published anywhere.
+
+**Postscript, the same day.** The last of those four was that the workflow had never executed on
+GitHub's own runners, only in a rehearsal of one. PR #6 and the merge into `master` ran it twice —
+`gate` green both times, all four steps, 67 seconds — so it left the backlog before the increment
+was a day old. The rehearsal had earned its keep by then: what it caught, `arc.exe` on Linux, would
+have failed that first run.

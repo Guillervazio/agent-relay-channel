@@ -52,13 +52,6 @@ rediscovered as a bug.
   which the Stop hook does, when it is running.
   <br>**Due when:** a second contributor pushes from a platform that is not Windows, or a defect
   that only appears on Windows reaches `master`.
-- **The workflow has never run on GitHub's runners.** It was rehearsed by copying the working tree
-  into `mcr.microsoft.com/dotnet/sdk:10.0` and running `scripts/test-all.sh` there, which is a
-  rehearsal and not the thing: the runner has its own preinstalled toolchain, `actions/setup-dotnet`
-  resolves the SDK its own way, and `actions/checkout` applies `.gitattributes` rather than copying
-  a working tree.
-  <br>**Due when:** the branch is pushed. This one resolves itself on the first run, and the first
-  run is the test.
 - **The container image is not published anywhere.** Adopting the hub by container means cloning
   the repository and building it.
   <br>**Due when:** somebody asks for an image, or a release is cut that is meant to be installed
