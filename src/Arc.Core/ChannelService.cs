@@ -233,6 +233,44 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
     }
 
     /// <summary>
+    /// Un mensaje suelto, para sus dos extremos y para nadie más. Un mensaje ajeno y uno
+    /// inexistente contestan lo mismo: un 403 confirmaría que ese identificador existe, que
+    /// es justo lo que el llamante no tenía derecho a saber — H011, del que
+    /// <c>InboxAsync</c> se aparta porque los nombres de agente ya son públicos y un
+    /// identificador de mensaje no lo es.
+    /// </summary>
+    public async Task<Message> MessageAsync(string caller, string id, CancellationToken ct = default)
+    {
+        Message? message = await store.GetAsync(id, ct);
+        if (message is null || (message.From != caller && message.To != caller))
+        {
+            throw new ChannelException(ArcErrors.NotFound, "No existe ese mensaje.", 404);
+        }
+
+        return message;
+    }
+
+    /// <summary>
+    /// El hilo recortado a las filas del llamante, no el hilo entero de quien aparezca en él:
+    /// cualquiera que conozca un identificador de hilo puede entrar en él mandando un aviso,
+    /// así que participar no puede ser lo que dé derecho a leer lo anterior.
+    /// </summary>
+    public async Task<IReadOnlyList<Message>> ThreadAsync(string caller, string threadId, CancellationToken ct = default)
+    {
+        IReadOnlyList<Message> messages = await store.GetThreadAsync(threadId, ct);
+        List<Message> mine = messages.Where(m => m.From == caller || m.To == caller).ToList();
+
+        // Mismo texto que un hilo que no existe: distinguirlos por el detalle filtraría
+        // por la prosa lo que el código de estado existe para no decir.
+        if (mine.Count == 0)
+        {
+            throw new ChannelException(ArcErrors.NotFound, "No existe ese hilo.", 404);
+        }
+
+        return mine;
+    }
+
+    /// <summary>
     /// Segundos de espera pedidos, comprobados contra el máximo. Rechaza en vez de
     /// recortar: una espera acortada en silencio vuelve con un <c>outcome</c>
     /// indistinguible de un plazo agotado de verdad, y el llamante no se entera.

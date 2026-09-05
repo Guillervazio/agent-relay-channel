@@ -21,6 +21,7 @@ public sealed class HubEndpointTests : IAsyncLifetime
     private const string Token = "un-secreto-de-prueba";
     private const string A = "claude-pc1";
     private const string B = "codex-pc2";
+    private const string C = "gemini-pc3";
 
     private readonly string _path = Path.Combine(Path.GetTempPath(), $"arc-hub-{Guid.NewGuid():n}.db");
     private WebApplication _app = null!;
@@ -213,6 +214,51 @@ public sealed class HubEndpointTests : IAsyncLifetime
         HttpResponseMessage response = await Client(A).GetAsync("/v1/messages/req_0000000000000000");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Un_mensaje_de_otros_se_contesta_igual_que_uno_que_no_existe()
+    {
+        HttpResponseMessage creado = await Client(A).PostAsync("/v1/notes", Json(
+            $$"""{"to":"{{B}}","body":"la clave está en el fichero"}"""));
+        Message aviso = (await creado.Content.ReadFromJsonAsync<Message>(ArcJson.Options))!;
+
+        HttpResponseMessage ajeno = await Client(C).GetAsync($"/v1/messages/{aviso.Id}");
+        HttpResponseMessage inventado = await Client(C).GetAsync("/v1/messages/not_0000000000000000");
+
+        Assert.Equal(HttpStatusCode.NotFound, ajeno.StatusCode);
+        Assert.Equal("not_found", await ErrorCodeOf(ajeno));
+
+        // El cuerpo entero, no sólo el código: un detalle distinto diría por la prosa
+        // que ese identificador existe, que es lo que el 404 está ocultando.
+        Assert.Equal(await inventado.Content.ReadAsStringAsync(), await ajeno.Content.ReadAsStringAsync());
+
+        // Y el destinatario sí lo lee, que es la mitad que el 404 no debe romper.
+        Assert.Equal(HttpStatusCode.OK, (await Client(B).GetAsync($"/v1/messages/{aviso.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Un_hilo_ajeno_es_404_y_el_propio_no()
+    {
+        HttpResponseMessage creado = await Client(A).PostAsync("/v1/notes", Json(
+            $$"""{"to":"{{B}}","body":"he tocado el endpoint de pagos"}"""));
+        Message aviso = (await creado.Content.ReadFromJsonAsync<Message>(ArcJson.Options))!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await Client(C).GetAsync($"/v1/threads/{aviso.ThreadId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Client(B).GetAsync($"/v1/threads/{aviso.ThreadId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task El_panel_sigue_viendo_el_canal_entero()
+    {
+        await Client(A).PostAsync("/v1/notes", Json($$"""{"to":"{{B}}","body":"he tocado el endpoint de pagos"}"""));
+
+        // /v1/observe es un lector deliberado de todo el canal sobre el mismo token: no es
+        // un descuido que el 404 de arriba deba cerrar, y una suite que no lo notara si
+        // desapareciera sería peor que ninguna.
+        string historia = await Client(C).GetStringAsync("/v1/observe/history");
+
+        Assert.Contains("endpoint de pagos", historia, StringComparison.Ordinal);
     }
 
     // ---------- El handshake de MCP ----------

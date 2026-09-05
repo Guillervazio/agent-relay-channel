@@ -27,7 +27,9 @@ would conceal nothing while making a common mistake harder to diagnose.
 It is not a general licence to prefer 403. H011 stands wherever existence is not already public,
 and the moment `/v1/agents` becomes scoped, this record has to be reopened.
 
-It also rests on an assumption that is currently false in a worse way. `GET /v1/messages/{id}` and
-`GET /v1/threads/{id}` perform **no authorisation at all**: any authenticated agent that knows an
-id reads the message. That is a finding in `docs/backlog.md`, not part of this decision — and
-closing it does not change this record, because `/v1/agents` will still publish the names.
+It is also not the answer for a route whose subject is not a mailbox. `GET /v1/messages/{id}` and
+`GET /v1/threads/{id}` answer **404** to an agent they are not addressed to, because a message id
+is not published anywhere and a 403 would confirm that it exists —
+[P016](P016-a-message-is-read-by-its-two-ends.md). Those two routes performed no authorisation at
+all until increment 07, which is the state this paragraph used to record; closing it did not
+change the decision above, because `/v1/agents` still publishes the names.
