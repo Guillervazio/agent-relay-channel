@@ -199,6 +199,23 @@ model can read it:
 | `arc_thread` | Retrieves a conversation — your messages in it. |
 | `arc_agents` | Lists who is on the channel. |
 
+### What a refusal looks like
+
+A tool that the channel refuses answers `isError: true` with one line of text:
+
+```
+self_addressed: Un agente no puede esperar su propia respuesta. Con 'wait' a 0 la peticion queda en tu buzon.
+```
+
+The code is the same one REST puts in `error`, and it leads. The sentence after it is the
+same `detail`, and like every other detail it is prose that may be reworded — key on the
+code, never on the wording. MCP has no status codes, so this line is the whole of what the
+caller gets; without the code in it, a model would learn only that something failed.
+
+`arc_thread` is the exception, and deliberately: it answers a thread that is not yours in
+ordinary prose rather than as an error, because saying *whether it exists* is what
+[the 404](#what-you-may-read) is chosen not to say.
+
 ### The handshake carries the channel's instructions
 
 `initialize` answers with an `instructions` field: natural-language guidance for the model on how

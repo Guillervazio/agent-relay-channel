@@ -67,7 +67,21 @@ public static class HubApp
         builder.Services
             // Las instrucciones viajan en el handshake: el canal se explica a sí mismo en vez
             // de que cada proyecto pegue las mismas reglas en su CLAUDE.md y las deje divergir.
-            .AddMcpServer(options => options.ServerInstructions = ArcInstructions.Text)
+            .AddMcpServer(options =>
+            {
+                options.ServerInstructions = ArcInstructions.Text;
+                options.Filters.Request.CallToolFilters.Add(next => async (context, ct) =>
+                {
+                    try
+                    {
+                        return await next(context, ct);
+                    }
+                    catch (ChannelException exception)
+                    {
+                        return ArcTools.Refusal(exception);
+                    }
+                });
+            })
             .WithHttpTransport()
             .WithTools<ArcTools>();
 

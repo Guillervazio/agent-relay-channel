@@ -15,7 +15,15 @@ inside the request body and a malformed one fails the whole parse as `invalid_js
 sibling operations disagreed with no comment, rule or record saying why, so one of the two was
 wrong and nothing said which.
 
-Neither is fixed by tightening. **A new refusal on a published route is breaking**, and
+A third came out of verifying the first two against a real hub, and it is why they are in
+the same increment: **no refusal at all reached the model over MCP**. The SDK turns every
+exception into `An error occurred invoking 'arc_note'`, so `invalid_refs` was not merely
+unreachable over REST — over MCP it was emitted and then swallowed, and so was every other
+code. The one place that already worked around it, `arc_thread` answering in prose rather
+than throwing, was recorded in increment 07 as a decision about the 404 without anyone
+noticing it was also the symptom of this.
+
+Neither of the first two is fixed by tightening. **A new refusal on a published route is breaking**, and
 [protocol.project.md](../.claude/rules/protocol.project.md) sets the test: name the client that
 breaks and show it could only be an abusive one. A client sending `refs: ["a.cs"]` is not abusive,
 and neither is an agent leaving itself a question for its next turn. Both halves therefore close by
@@ -26,7 +34,9 @@ refused and why it is not the same case.
 |---|---|---|---|
 | 1 | `refs` is any JSON value, and `invalid_refs` says which surface can emit it | done | `3f46a3e` |
 | 2 | An agent may queue a question to itself, and may not wait on it | done | this commit |
-| 3 | Close: the records, the spec, and what the backlog no longer owes | pending | |
+| 3 | MCP says why it refused, instead of that something went wrong | done | this commit |
+| 4 | The suites drive all three against a running hub, on the surfaces that can reach them | pending | |
+| 5 | Close: the records, the spec, and what the backlog no longer owes | pending | |
 
 **Every phase is closed in the same commit that updates its row.** The increment is closed by
 moving the narrative to [specs/](specs/) and leaving this file as it was.

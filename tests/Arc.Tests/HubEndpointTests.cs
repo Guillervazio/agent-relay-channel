@@ -311,7 +311,59 @@ public sealed class HubEndpointTests : IAsyncLifetime
         Assert.DoesNotContain("codex-pc2", instructions, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ---------- Lo que MCP dice cuando el canal se niega ----------
+
+    // El SDK convierte cualquier excepción en "An error occurred invoking 'arc_x'":
+    // el modelo se entera de que falló y no de por qué, y en una superficie sin
+    // códigos de estado eso es enterarse de nada. Un filtro traduce la negativa.
+    [Fact]
+    public async Task Una_negativa_del_canal_llega_al_modelo_con_su_codigo()
+    {
+        string raw = await CallTool(A, """
+            {"name":"arc_note","arguments":{"to":"codex-pc2","body":"rama subida","refs":"{roto"}}
+            """);
+
+        Assert.Contains("invalid_refs", raw, StringComparison.Ordinal);
+        Assert.Contains("debe ser JSON", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("An error occurred", raw, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Y_dice_como_arreglarlo_cuando_hay_forma_de_arreglarlo()
+    {
+        string raw = await CallTool(A, """
+            {"name":"arc_ask","arguments":{"to":"claude-pc1","body":"revisar el pin","wait":5}}
+            """);
+
+        // Negar la espera sólo sirve si el que la pidió puede corregirse, y el que la
+        // pide aquí es un modelo que no ve códigos de estado.
+        Assert.Contains("self_addressed", raw, StringComparison.Ordinal);
+        Assert.Contains("propia respuesta", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("An error occurred", raw, StringComparison.Ordinal);
+    }
+
     // ---------- Utilidades ----------
+
+    /// <summary>Llama una herramienta MCP y devuelve la respuesta cruda, venga como JSON o como SSE.</summary>
+    private async Task<string> CallTool(string agent, string parameters)
+    {
+        HttpClient client = Client(agent);
+        client.DefaultRequestHeaders.Add("Accept", "application/json, text/event-stream");
+
+        await client.PostAsync("/mcp", Json(
+            """
+            {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+              "protocolVersion":"2025-06-18",
+              "capabilities":{},
+              "clientInfo":{"name":"arc-tests","version":"1.0"}}}
+            """));
+
+        HttpResponseMessage response = await client.PostAsync("/mcp", Json(
+            $$"""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{{parameters}}}"""));
+
+        return await response.Content.ReadAsStringAsync();
+    }
+
 
     /// <summary>Saca las instrucciones del resultado de initialize, venga como JSON o como SSE.</summary>
     private static string InstructionsIn(string raw)
