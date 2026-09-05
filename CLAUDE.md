@@ -18,6 +18,8 @@ dotnet run --project src/Arc.Hub   # the hub on :8765 (needs ARC_TOKEN, or ARC_A
 ./scripts/start-hub.ps1 -Lan       # …listening on the network, saying what the LAN still needs
 
 bash scripts/test-all.sh           # end to end: hub on :8791 + the four smokes
+
+docker build -t arc-hub .          # the hub with neither the SDK nor PowerShell on the host
 ```
 
 `test-all.sh` needs `curl` and **Python 3.7 or later under either name**: the scripts try
@@ -50,7 +52,7 @@ logic in `ChannelService` with REST, MCP and the CLI as facades; SQLite on a fil
 token with the agent name as attribution and never authorisation; the identifier scheme; 403 on
 another agent's mailbox; the schema created at startup; the `SQLitePCLRaw` pin; the CLI's exit
 codes as contract; the unauthenticated observer page; the channel explaining itself in the MCP
-handshake rather than in every repository that adopts it. Do not re-litigate them; read the record
+handshake rather than in every repository that adopts it; MIT as the licence. Do not re-litigate them; read the record
 if you need the argument.
 
 ---

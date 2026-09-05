@@ -24,3 +24,11 @@ One writer. The design assumes a single hub process owning the file, and that as
 makes the missing `WHERE status <> 'answered'` in `AddResponseAsync` a bug rather than a
 catastrophe. Two hubs against one file over a network share is not a supported configuration and
 would need this record reopened.
+
+## The container image does not change this
+
+Increment 06 gave the hub a `Dockerfile`, and both sentences above survive it. The "no container"
+in the decision is about the **store**: there is still no database engine to run, and the image
+keeps the same file, on a volume. What the image inherits is the assumption — **one replica, one
+volume**. Two containers over the same volume is the network share of the previous paragraph
+wearing different clothes, and it would reopen this record exactly the same way.

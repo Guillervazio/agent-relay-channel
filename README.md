@@ -42,7 +42,7 @@ And only if you are going to run the smoke tests, which are shell scripts:
 
 | You need | What for | Check |
 |---|---|---|
-| **bash** | The five `.sh` scripts | Git Bash or WSL |
+| **bash** | The `.sh` scripts | Git Bash or WSL |
 | **curl** | `smoke.sh`, `smoke-mcp.sh` and `smoke-ui.sh` speak raw HTTP | `curl --version` |
 | **Python 3.7+** | The smokes parse JSON with it | `python3 --version`, or `python --version` |
 

@@ -1,6 +1,7 @@
 ---
 paths:
   - "tests/**/*.cs"
+  - "scripts/**"
 ---
 
 # Testing — this project
@@ -34,7 +35,8 @@ port 8791, and is still not xunit and not in the fast gate.
 
 The division of labour between them is worth stating, because it decides where a new test goes.
 `HubEndpointTests` owns anything the pipeline decides: status codes, headers, refusals.
-`test-all.sh` owns what only a real process can show — the published `arc.exe` actually running,
+`test-all.sh` owns what only a real process can show — the published client actually running
+(`arc.exe` here, `arc` where CI runs it),
 Kestrel's own behaviour under a long poll, and the observer page's event stream over a real
 connection. A check that could live in either belongs in xunit, because that is the one a gate
 runs.
@@ -130,3 +132,17 @@ needs and cannot find, it names before any work is done.
 That preflight is not decoration. `jget()` swallows stderr, so an absent interpreter used to
 produce an empty string and fail a check complaining about the content of a response that was
 fine — a suite lying about why it failed costs more than one that does not run.
+
+## Two files in `scripts/` are loaded, not run
+
+`preflight.sh` and `ArcHost.ps1` have no `main`: the suites source the first, and `start-hub.ps1`
+and `install-hub.ps1` dot-source the second. Each holds what two or more scripts have to do
+**identically**, and each exists because that identical thing had already drifted — the token and
+the LAN address were fixed in `start-hub.ps1` while `install-hub.ps1` stayed broken for a whole
+increment, and the interpreter was named four times in four suites.
+
+What this does not authorise: moving anything else there. The bar is a thing that must be the same
+in more than one script *and* has already cost a defect by not being. A check belongs in the suite
+that makes it — the counts, the `check()` helper and `jget()` stay duplicated on purpose, because
+they are what each suite says about itself, and a shared file that grows into a test framework is
+how a suite stops being readable on its own.

@@ -23,7 +23,7 @@ raising `AnalysisLevel` is a backlog entry with a trigger rather than a thing al
 The `dotnet format` half of the base clause is the fragile half here too, and for the same reason:
 `using` order, whitespace and CRLF are enforced only because the Stop hook runs `dotnet format`
 every turn, and that hook arrives as a plugin. See
-[testing.project.md](testing.project.md#nothing-in-this-repository-runs-the-gate).
+[testing.project.md](testing.project.md#the-gate-that-runs-every-turn-is-not-in-this-repository).
 
 ## Where deferred work is recorded
 
