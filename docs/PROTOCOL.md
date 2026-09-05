@@ -132,9 +132,14 @@ bounded and drops the oldest.
 }
 ```
 
-`refs` is a free-form JSON object. **Send references, not content**: both machines have
-a clone of the same repository, so a commit and a path are enough. The body is limited
-to 256 KB and the hub rejects anything beyond that.
+`refs` is **any JSON value**, stored and returned verbatim. An object is the convention and
+what every example here shows, but nothing rejects an array, a string or a number, and no
+client should be written expecting that they are refused.
+
+**Send references, not content**: both machines have a clone of the same repository, so a
+commit and a path are enough. The body is limited to 256 KB and the hub rejects anything
+beyond that; `refs` has no separate limit, so what caps it is the request as a whole, which
+Kestrel holds to 512 KB.
 
 ### Result of a request
 
@@ -161,12 +166,18 @@ Always `{"error": "<code>", "detail": "<explanation>"}`:
 | `bad_recipient` | 422 | `to` missing or malformed |
 | `empty_body` | 422 | The body is missing |
 | `body_too_large` | 422 | More than 256 KB |
-| `invalid_refs` | 422 | `refs` is not a valid JSON object |
+| `invalid_refs` | 422 | `refs` could not be read as JSON. **MCP only** — see below |
 | `invalid_wait` | 422 | `wait` outside the range the hub accepts |
 | `self_addressed` | 422 | An agent writing to itself |
 | `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
 | `not_found` | 404 | No such request, message or thread — or none you may read |
 | `already_answered` | 409 | That request already has an answer |
+
+`invalid_refs` is reachable over MCP alone, and that is the shape of the wire rather than
+an omission: MCP takes `refs` as a string argument the hub parses on its own, so it can fail
+by itself. Over REST `refs` travels inside the request body, so malformed `refs` are a
+malformed body and answer `invalid_json` 400. The CLI parses `--refs` before it sends
+anything and exits 2 without reaching the hub.
 
 `400` is only for what could not be read. A request that arrived intact and that a rule
 said no to answers `422`: that way a client tells its own serialisation failure apart

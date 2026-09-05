@@ -218,7 +218,7 @@ public sealed class ArcTools
         }
         catch (JsonException exception)
         {
-            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser un objeto JSON válido: {exception.Message}", 422);
+            throw new ChannelException(ArcErrors.InvalidRefs, $"'refs' debe ser JSON válido: {exception.Message}", 422);
         }
     }
 }
