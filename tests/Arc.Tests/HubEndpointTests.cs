@@ -175,6 +175,35 @@ public sealed class HubEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    /// <summary>
+    /// El aviso recuperado por el cable, y no sólo por el servicio: lo que se afirma es que
+    /// llega el cuerpo, porque el 200 lo daría igual una respuesta con la fila vacía.
+    /// </summary>
+    [Fact]
+    public async Task Un_aviso_ya_entregado_vuelve_por_el_cable_con_su_cuerpo()
+    {
+        await Client(A).PostAsync("/v1/notes", Json(
+            $$"""{"to":"{{B}}","body":"la clave está en el fichero"}"""));
+
+        Assert.Equal(HttpStatusCode.OK, (await Client(B).GetAsync($"/v1/inbox/{B}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Client(B).GetAsync($"/v1/inbox/{B}")).StatusCode);
+
+        HttpResponseMessage releido = await Client(B).GetAsync($"/v1/inbox/{B}?replay=60");
+        InboxResult buzon = (await releido.Content.ReadFromJsonAsync<InboxResult>(ArcJson.Options))!;
+
+        Assert.Equal(HttpStatusCode.OK, releido.StatusCode);
+        Assert.Equal("la clave está en el fichero", Assert.Single(buzon.Messages).Body);
+    }
+
+    [Fact]
+    public async Task Un_replay_por_encima_del_tope_es_422_y_no_una_ventana_recortada()
+    {
+        HttpResponseMessage response = await Client(B).GetAsync($"/v1/inbox/{B}?replay=90000");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal(ArcErrors.InvalidReplay, await ErrorCodeOf(response));
+    }
+
     [Fact]
     public async Task El_buzon_de_otro_agente_es_403()
     {

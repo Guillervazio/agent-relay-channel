@@ -205,10 +205,12 @@ public static class HubApp
             Results.Ok(await channel.NoteAsync(ArcTools.Caller(context), input.To, input.Body, input.Subject,
                 input.Refs, input.ThreadId, context.RequestAborted)));
 
-        // Buzón propio. Con ?wait=N espera a que llegue algo.
-        app.MapGet("/v1/inbox/{agent}", async (string agent, HttpContext context, int? wait, bool? unanswered) =>
+        // Buzón propio. Con ?wait=N espera a que llegue algo; con ?replay=N vuelve a mirar
+        // los N segundos anteriores, que es lo único que devuelve un aviso ya entregado.
+        app.MapGet("/v1/inbox/{agent}", async (string agent, HttpContext context, int? wait, bool? unanswered, int? replay) =>
         {
-            IReadOnlyList<Message> messages = await channel.InboxAsync(ArcTools.Caller(context), agent, unanswered ?? false, wait, context.RequestAborted);
+            IReadOnlyList<Message> messages = await channel.InboxAsync(
+                ArcTools.Caller(context), agent, unanswered ?? false, wait, replay, context.RequestAborted);
             return messages.Count == 0
                 ? Results.NoContent()
                 : Results.Ok(new InboxResult { Agent = agent, Messages = messages });

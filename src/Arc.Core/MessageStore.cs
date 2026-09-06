@@ -69,6 +69,7 @@ public sealed class MessageStore
             );
 
             CREATE INDEX IF NOT EXISTS ix_messages_inbox       ON messages(to_agent, status);
+            CREATE INDEX IF NOT EXISTS ix_messages_replay      ON messages(to_agent, created_at);
             CREATE INDEX IF NOT EXISTS ix_messages_thread      ON messages(thread_id, created_at);
             CREATE INDEX IF NOT EXISTS ix_messages_correlation ON messages(correlation_id);
 
@@ -163,17 +164,46 @@ public sealed class MessageStore
     }
 
     /// <summary>
-    /// Correo del agente. Por defecto sólo lo no entregado; con <paramref name="includeUnanswered"/>
-    /// añade los requests ya entregados que siguen sin respuesta (recuperación tras una caída).
+    /// Correo del agente. Por defecto sólo lo no entregado; <paramref name="includeUnanswered"/>
+    /// añade los requests ya entregados que siguen sin respuesta, y <paramref name="replaySince"/>
+    /// añade todo lo dirigido al agente desde ese instante, sea cual sea su tipo y su estado.
     /// </summary>
-    public async Task<IReadOnlyList<Message>> GetInboxAsync(string agent, bool includeUnanswered = false, CancellationToken ct = default)
+    /// <remarks>
+    /// Los tres criterios se suman en un OR y no se excluyen: un mensaje que cumple dos sale una
+    /// vez. La ventana es lo único que alcanza a un aviso ya entregado, porque un aviso no tiene
+    /// estado terminal — un request se drena solo al pasar a <c>answered</c>, y un aviso se queda
+    /// en <c>delivered</c> para siempre, de modo que sin cota devolvería el histórico entero.
+    /// <para>
+    /// Se mide sobre <c>created_at</c> porque no hay columna de entrega, y añadirla no está
+    /// disponible: P007 crea el esquema con <c>CREATE … IF NOT EXISTS</c>, que no toca una tabla
+    /// que ya existe. Todas las fechas se guardan en el mismo ISO 8601 UTC de ancho fijo, así que
+    /// comparar texto y comparar instantes coincide — es de lo que ya vive el <c>ORDER BY</c>.
+    /// </para>
+    /// <para>Ninguna de las tres ramas escribe: releer no cambia nada.</para>
+    /// </remarks>
+    public async Task<IReadOnlyList<Message>> GetInboxAsync(
+        string agent, bool includeUnanswered = false, DateTimeOffset? replaySince = null, CancellationToken ct = default)
     {
+        List<string> reachable = new List<string> { "status = 'pending'" };
+        if (includeUnanswered)
+        {
+            reachable.Add("(status = 'delivered' AND kind = 'request')");
+        }
+
+        if (replaySince is not null)
+        {
+            reachable.Add("created_at >= $since");
+        }
+
         await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = SelectSql + (includeUnanswered
-            ? " WHERE to_agent = $agent AND (status = 'pending' OR (status = 'delivered' AND kind = 'request')) ORDER BY created_at"
-            : " WHERE to_agent = $agent AND status = 'pending' ORDER BY created_at");
+        command.CommandText = SelectSql
+            + $" WHERE to_agent = $agent AND ({string.Join(" OR ", reachable)}) ORDER BY created_at";
         command.Parameters.AddWithValue("$agent", agent);
+        if (replaySince is { } since)
+        {
+            command.Parameters.AddWithValue("$since", Format(since));
+        }
 
         List<Message> messages = new List<Message>();
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);

@@ -104,7 +104,7 @@ public sealed class ArcTools
         CancellationToken cancellationToken = default)
     {
         string me = Caller(accessor);
-        IReadOnlyList<Message> messages = await channel.InboxAsync(me, me, unanswered, wait, cancellationToken);
+        IReadOnlyList<Message> messages = await channel.InboxAsync(me, me, unanswered, wait, ct: cancellationToken);
 
         if (messages.Count == 0)
         {

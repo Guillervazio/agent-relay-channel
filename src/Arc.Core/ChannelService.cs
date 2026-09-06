@@ -26,6 +26,14 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
 
     public int MaxWaitSeconds { get; } = maxWaitSeconds;
 
+    /// <summary>
+    /// Tope de la ventana de relectura, en segundos: un día. Es constante y no un ajuste del hub
+    /// porque acota una consulta y no un recurso del despliegue — <c>MaxWaitSeconds</c> se
+    /// configura porque decide cuánto se retiene una conexión, y nada de cómo se arranque el hub
+    /// cambia cuál es una ventana de recuperación razonable.
+    /// </summary>
+    public const int MaxReplaySeconds = 86400;
+
     public MessageStore Store => store;
     public WaiterRegistry Registry => registry;
 
@@ -201,11 +209,21 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         return note;
     }
 
-    /// <summary>Buzón propio. Marca como entregado lo que devuelve.</summary>
+    /// <summary>
+    /// Buzón propio. Marca como entregado lo que sale por primera vez; lo que trae la ventana de
+    /// <paramref name="replay"/> ya estaba entregado, así que releer no escribe nada.
+    /// </summary>
+    /// <remarks>
+    /// El instante de corte se calcula una sola vez, antes de la espera: la ventana es la del
+    /// momento en que se pidió y no una que se desliza mientras la conexión está retenida, de
+    /// modo que las dos consultas de un mismo poll miran exactamente el mismo tramo.
+    /// </remarks>
     public async Task<IReadOnlyList<Message>> InboxAsync(
-        string caller, string agent, bool includeUnanswered, int? wait, CancellationToken ct = default)
+        string caller, string agent, bool includeUnanswered, int? wait, int? replay = null,
+        CancellationToken ct = default)
     {
         int seconds = ValidateWait(wait);
+        DateTimeOffset? since = ValidateReplay(replay);
 
         if (agent != caller)
         {
@@ -215,12 +233,12 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
         using Waiter waiter = registry.Register(WaiterRegistry.InboxKey(agent));
 
-        IReadOnlyList<Message> messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+        IReadOnlyList<Message> messages = await store.GetInboxAsync(agent, includeUnanswered, since, ct);
         if (messages.Count == 0 && seconds > 0)
         {
             if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
             {
-                messages = await store.GetInboxAsync(agent, includeUnanswered, ct);
+                messages = await store.GetInboxAsync(agent, includeUnanswered, since, ct);
             }
         }
 
@@ -287,6 +305,35 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         }
 
         return seconds;
+    }
+
+    /// <summary>
+    /// El instante desde el que releer, a partir de los segundos pedidos, o <c>null</c> si no se
+    /// pidió ninguna ventana. Rechaza en vez de recortar por lo mismo que
+    /// <see cref="ValidateWait"/>: una ventana estrechada en silencio devuelve menos mensajes y
+    /// el llamante no tiene forma de enterarse.
+    /// </summary>
+    /// <remarks>
+    /// Cero es una ventana vacía y no un error, igual que <c>wait</c> a 0 es no esperar: un
+    /// cliente que pasa siempre el parámetro con un valor por defecto no está pidiendo nada malo.
+    /// La resta la hace el hub contra su propio reloj, de manera que el llamante dice hace cuánto
+    /// y nunca desde cuándo — que es justo lo que no sabe cuando la respuesta que perdió se
+    /// llevaba los identificadores y las fechas.
+    /// </remarks>
+    public DateTimeOffset? ValidateReplay(int? requested)
+    {
+        if (requested is not { } seconds || seconds == 0)
+        {
+            return null;
+        }
+
+        if (seconds < 0 || seconds > MaxReplaySeconds)
+        {
+            throw new ChannelException(ArcErrors.InvalidReplay,
+                $"'replay' va entre 0 y {MaxReplaySeconds} segundos.", 422);
+        }
+
+        return _time.GetUtcNow().AddSeconds(-seconds);
     }
 
     /// <summary>

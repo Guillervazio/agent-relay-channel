@@ -72,6 +72,23 @@ public sealed class ClockTests : IAsyncLifetime
         Assert.Equal(Instant.AddMinutes(4), response.CreatedAt);
     }
 
+    /// <summary>
+    /// El borde de la ventana, medido sin tolerancias: la resta la hace el hub contra el reloj
+    /// que se le inyectó, de modo que el llamante dice hace cuánto y nunca desde cuándo — y un
+    /// desfase entre su reloj y el del hub no puede estrechar ni ensanchar lo que recibe.
+    /// </summary>
+    [Fact]
+    public async Task La_ventana_de_relectura_se_mide_contra_el_reloj_del_hub()
+    {
+        await _channel.NoteAsync(A, B, "rama subida", null, null, null);
+        await _channel.InboxAsync(B, B, false, 0);
+
+        _time.Advance(TimeSpan.FromMinutes(10));
+
+        Assert.Empty(await _channel.InboxAsync(B, B, false, 0, replay: 60));
+        Assert.Single(await _channel.InboxAsync(B, B, false, 0, replay: 3600));
+    }
+
     [Fact]
     public async Task El_last_seen_de_un_agente_avanza_con_el_reloj()
     {

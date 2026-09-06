@@ -39,6 +39,22 @@ An agent may only **read its own mailbox** and **answer what is addressed to it*
 A `request` that was delivered but not answered is still recoverable with
 `?unanswered=true`: that is the recovery path if an agent dies before replying.
 
+A `note` is not covered by that, and cannot be: it is never *unanswered*, because it is never
+answered. It has **no terminal state** — it stays `delivered` for ever, where a `request` leaves
+the recovery set by becoming `answered`. So the way back to a delivered notice is a window in
+time rather than a state: `?replay=N` returns everything addressed to you in the last `N`
+seconds, whatever its kind and whatever its status, alongside whatever is `pending` as usual.
+
+That is the recovery path when a mailbox response is lost in transit — the messages were marked
+`delivered` before the response was written, so a response that never arrives takes them out of
+the default mailbox. **Re-reading writes nothing**: nothing is marked, no status changes and no
+waiting poll is woken, so the same window returns the same messages as many times as it is asked.
+`N` is counted back from the hub's own clock, so a caller says *how long ago* and never *since
+when* — which is the only one of the two it still knows, having never received the ids or the
+timestamps in the response it lost. `N` runs from 0 (look back at nothing) to 86400, and one
+outside that is **refused with `422 invalid_replay`, never silently clamped**, for the same
+reason `wait` is: a narrowed window returns fewer messages and the caller cannot tell.
+
 ## REST endpoints
 
 | Method | Path | Behaviour |
@@ -47,7 +63,7 @@ A `request` that was delivered but not answered is still recoverable with
 | `GET` | `/v1/requests/{id}/response?wait=N` | Resumes the wait on a request that already expired. |
 | `POST` | `/v1/requests/{id}/response` | Answers. Wakes the sender instantly. |
 | `POST` | `/v1/notes` | Notice with no answer expected. |
-| `GET` | `/v1/inbox/{agent}?wait=N&unanswered=` | Your own mailbox. `204` if nothing arrives within the deadline. |
+| `GET` | `/v1/inbox/{agent}?wait=N&unanswered=&replay=N` | Your own mailbox. `204` if nothing arrives within the deadline. |
 | `GET` | `/v1/threads/{id}` | The conversation, in order — your messages in it. `404` if none are. |
 | `GET` | `/v1/messages/{id}` | One specific message, if you sent it or it was sent to you. `404` otherwise. |
 | `GET` | `/v1/agents` | Agents seen. |
@@ -168,6 +184,7 @@ Always `{"error": "<code>", "detail": "<explanation>"}`:
 | `body_too_large` | 422 | More than 256 KB |
 | `invalid_refs` | 422 | `refs` could not be read as JSON. **MCP only** — see below |
 | `invalid_wait` | 422 | `wait` outside the range the hub accepts |
+| `invalid_replay` | 422 | `replay` outside the range the hub accepts (0 to 86400 seconds) |
 | `self_addressed` | 422 | An agent asked to wait on its own answer |
 | `forbidden` | 403 | Someone else's mailbox, or answering something not addressed to you |
 | `not_found` | 404 | No such request, message or thread — or none you may read |
