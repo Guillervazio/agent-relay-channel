@@ -4,6 +4,9 @@ paths:
   - "**/*.props"
   - "**/*.sln"
   - "**/*.slnx"
+  - "global.json"
+  - "Dockerfile"
+  - ".github/workflows/**"
 ---
 
 # Build and packages — base
@@ -35,6 +38,12 @@ forever: a major bump can change a licence, a test platform or a transitive depe
 version declared here may be pinned in step with a tool version somewhere else — a container
 stage, a CI image — that nothing will remind you about. Reviewing what is outdated is free;
 acting on it is not.
+
+Those two are why this file's `paths:` reach past the project system to `global.json`, the
+`Dockerfile` and `.github/workflows/**`. The clause above is about them and nothing else was
+opening it: an area's `paths:` has to name the files its **clauses** talk about, not the files the
+area is filed under. The second consumer found this the expensive way — see
+[the package README](https://github.com/Guillervazio/dotnet-house#the-one-thing-every-consumer-edits).
 
 Two ownership rules are structural rather than taste:
 

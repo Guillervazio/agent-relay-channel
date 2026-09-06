@@ -1,8 +1,27 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 10 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 11 are closed in [specs/](specs/).
 
-**Last verified** (6 September 2026, at the close of increment 10):
+**One thing to watch, and it is not verified.** Increment 11 copied `shared/architecture.md` and
+`shared/build-and-packages.md` from `dotnet-house`'s `docs/a-base-that-did-not-survive-b`, which
+was **not yet merged** when the copies were taken. If that branch changed before merging, these two
+copies are of something that never shipped. Re-take them from the package's `master` at 0.3.0 and
+diff; they should differ only in the `paths:` block of `api-guidelines` and in the rewritten
+`H###` links, as every other copy here does.
+
+**Last verified** (7 September 2026, at the close of increment 11):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **133 passed, 0 failed, 0 skipped**;
+  `dotnet format --verify-no-changes` clean. Increment 11 changed no code, so `test-all.sh` was
+  not re-run
+* the four `shared/` copies differ from the package's files only where a copy is allowed to differ,
+  checked with `diff` rather than by reading: the adapted `paths:`, the rewritten record links, and
+  in `architecture.md` two links to files that exist only in the package
+* every relative link in the edited files resolves, checked mechanically
+* the appendix repeats no clause the base now carries — three passages moved out, and what remains
+  was read against the base rather than assumed
+
+**At the close of increment 10** (6 September 2026):
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
 * `dotnet test` — **133 passed, 0 failed, 0 skipped**, 1 project

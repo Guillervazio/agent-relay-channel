@@ -64,22 +64,31 @@ record if you need the argument.
 [.claude/rules/](.claude/rules/), binding whether or not they are quoted back — and, as the next
 section says, not in front of you until you put them there.
 
-Four areas are two files — `shared/<area>.md` is the portable base, copied from `dotnet-house` and
+Five areas are two files — `shared/<area>.md` is the portable base, copied from `dotnet-house` and
 edited **there**; `<area>.project.md` is ours. A deviation from a base clause goes under
 `## Deviations` in that appendix, naming the clause it replaces, and **that entry wins**. Those
-areas: `coding-conventions`, `testing`, `build-and-packages`, `api-guidelines`.
+areas: `coding-conventions`, `testing`, `build-and-packages`, `api-guidelines`, and — since
+increment 11 — `architecture`.
 
-The appendix may carry `paths:` the base does not, and two of them do — `testing.project.md` covers
-`scripts/**` and `.github/workflows/**`, `build-and-packages.project.md` covers `global.json`, the
-`Dockerfile` and the workflows — because a path that exists only in this project cannot be added
-to a file
-edited in another repository. **Opening one of those files loads the appendix alone**, verified on
-7 September 2026 rather than assumed. The table below says which rows those are, and every
-appendix's first line links to its base.
+The appendix may carry `paths:` the base does not, and `testing.project.md` does: it covers
+`scripts/**` and `.github/workflows/**`, and its base covers `tests/**/*.cs` alone, because a path
+that exists only in this project cannot be added to a file edited in another repository. **Opening
+one of those two loads the appendix and not the base**, verified on 7 September 2026 rather than
+assumed, and the table below says which row that is.
 
-Four more have **no base**, and say so in their first line: `architecture`, `protocol`,
-`persistence`, `concurrency`. The first replaces a base that did not survive contact with this
-project; the other three cover what ARC is and the package has nothing on.
+`build-and-packages` was the other one until increment 11, and it stopped being one the right way.
+The missing paths were a defect **in the base**: its own clause about a package version "pinned in
+step with a container stage, a CI image" governed files no `.csproj` glob has ever matched. That
+was reported and fixed in `dotnet-house`, so `global.json`, the `Dockerfile` and the workflows now
+arrive with base and appendix together. Adapting a copy's frontmatter to this project's layout is
+legitimate; doing it because the base is wrong is a bug report waiting to be filed.
+
+Three more have **no base**, and say so in their first line: `protocol`, `persistence`,
+`concurrency`. They cover what ARC is and the package has nothing on. `architecture` was a fourth
+until increment 11: it had rejected a base describing a five-role web application, the package
+demoted that base on this repository's evidence and rewrote it as what two projects obey, and
+[P022](docs/adr/P022-the-base-that-came-back.md) is why adopting the new one beat staying
+standalone.
 
 Each fact has one home; a rule that needs a fact from elsewhere links to it rather than restating
 it. The long reasoning is not in the rules at all — it is in [docs/adr/](docs/adr/), read on
@@ -107,15 +116,14 @@ in [P021](docs/adr/P021-a-rule-that-never-arrived.md).
 | Before you touch | Open first |
 |---|---|
 | any `.cs` at all | `coding-conventions`, base and appendix |
-| `src/**` or `tests/**` | …and [architecture.project.md](.claude/rules/architecture.project.md) |
+| `src/**` or `tests/**` | …and `architecture`, base and appendix |
 | `MessageStore.cs` | …and [persistence.project.md](.claude/rules/persistence.project.md) |
 | `WaiterRegistry.cs`, `EventStream.cs`, `HubApp.cs` | …and [concurrency.project.md](.claude/rules/concurrency.project.md) |
 | `src/Arc.Hub/**`, `Models.cs`, `ChannelService.cs` | …and `api-guidelines`, base and appendix |
 | `src/Arc.Hub/**`, `src/Arc.Cli/**`, `Models.cs`, `docs/PROTOCOL.md` | …and [protocol.project.md](.claude/rules/protocol.project.md) |
 | `tests/**/*.cs` | `testing`, base and appendix — and [persistence.project.md](.claude/rules/persistence.project.md), whose deviations decide how a test reaches the store |
 | `scripts/**`, `.github/workflows/**` | [testing.project.md](.claude/rules/testing.project.md) — its base covers `tests/**/*.cs` only and will **not** arrive |
-| `*.csproj`, `*.props`, `*.slnx` | `build-and-packages`, base and appendix |
-| `global.json`, `Dockerfile`, `.github/workflows/**` | [build-and-packages.project.md](.claude/rules/build-and-packages.project.md), and open its base **by hand**: the clause about a version pinned in step with a container stage or a CI image is in the base, which cannot carry these paths |
+| `*.csproj`, `*.props`, `*.slnx`, `global.json`, `Dockerfile`, `.github/workflows/**` | `build-and-packages`, base and appendix — the base gained the last three in `dotnet-house` 0.3.0, because its own clause about a version pinned in step with a container stage or a CI image is about them |
 | `docs/adr/`, `docs/specs/`, `docs/todo.md`, `docs/backlog.md` | no area rule governs these — they are the `close-increment` and `reconcile-rules` skills' subject |
 | a rule in `.claude/rules/` | `reconcile-rules`, and the area's base if it has one |
 

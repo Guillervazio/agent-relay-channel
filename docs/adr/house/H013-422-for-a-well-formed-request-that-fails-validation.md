@@ -22,8 +22,8 @@ is not entitled to trigger is an authorisation answer, not a validation one.
 
 ## Origin
 
-Derives with `PlastipackInventoryApp`'s P011 from one earlier entry, 0005, split
-into the criterion and its application.
+Split from one earlier entry, 0005, into the criterion and its application. The application half is
+a project decision, and belongs to whichever project made it.
 
 ## Evidence outside this project
 
