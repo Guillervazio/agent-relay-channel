@@ -36,6 +36,11 @@ An agent may only **read its own mailbox** and **answer what is addressed to it*
 
 `pending` → `delivered` (when read from the mailbox) → `answered` (only `request`, when replied to).
 
+Reading the mailbox **is** the delivery, in one operation: a message comes back already reporting
+`delivered`, and two polls running at the same time do not both receive it — the second one sees
+what the first left. Until increment 12 a first read reported `status: "pending"` for a row it had
+just marked, and two simultaneous polls by the same agent each got a copy.
+
 A `request` that was delivered but not answered is still recoverable with
 `?unanswered=true`: that is the recovery path if an agent dies before replying.
 
