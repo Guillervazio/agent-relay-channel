@@ -2,6 +2,7 @@
 paths:
   - "tests/**/*.cs"
   - "scripts/**"
+  - ".github/workflows/**"
 ---
 
 # Testing — this project
