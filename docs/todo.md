@@ -1,28 +1,33 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 09 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 10 are closed in [specs/](specs/).
 
-**Last verified** (6 September 2026, at the close of increment 09):
+**Last verified** (6 September 2026, at the close of increment 10):
 
 * `dotnet build` — **0 warnings, 0 errors**, `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` on
 * `dotnet test` — **133 passed, 0 failed, 0 skipped**, 1 project
 * `dotnet format --verify-no-changes` — clean
 * `dotnet restore --force` — clean, no advisory
-* `bash scripts/test-all.sh` — **four suites green, 114 checks** (45 REST, 28 CLI, 30 MCP, 11 UI)
-* the rules reconciled against the change rather than only where it edited: six clauses checked,
-  three rewritten, the costliest in a file this increment never opened —
-  `api-guidelines.project.md` said the inbox needs no caller-supplied bound because it is one
-  agent's mailbox, which read literally forbade the fix
-* by hand against a running hub on `:8803`, reading the answers rather than their status codes: a
-  delivered notice came back through `?replay=60` with its body and accents intact and
-  `status: "delivered"`, came back again unchanged on a second call, and never returned to the
-  default mailbox; `replay=90000` and `replay=-5` answered `invalid_replay` naming the range on
-  all three surfaces; the CLI exited 4, 4, 0 and 1 across `inbox`, `--unanswered`, `--replay 60`
-  and `--replay 90000`
+* every relative link in the four files this increment edited resolves, checked mechanically rather
+  than by reading them
+* the glob shapes added to two `paths:` blocks match what they are meant to, checked against git's
+  own matcher — `.github/workflows` (which is how the harness stores `.github/workflows/**`, the
+  trailing `/**` being stripped) matches `.github/workflows/gate.yml`, and `Dockerfile` matches
+  the file
+
+**What is verified and what is not.** Increment 10 changed no code, so the four smoke suites in
+`scripts/test-all.sh` were **not** re-run: nothing here touches the wire, a surface or a script,
+and increment 09's run of them stands. What is genuinely unverified is the one thing this increment
+is about — **whether a rule now loads for a file that did not match before**. It cannot be checked
+from inside the session that made the change, because a rule already opened by hand is not injected
+again. The check is to open `.github/workflows/gate.yml` or the `Dockerfile` in a **fresh** session
+and see `build-and-packages.project.md` arrive, or to count the loads in that session's transcript
+as [P021](adr/P021-a-rule-that-never-arrived.md) describes. Until somebody does that, the routing
+table in `CLAUDE.md` is the part that is known to work, because it is always in context.
 
 Everything increment 06 verified about hosting — the container, the SDK image, Windows PowerShell
-5.1, the installer's reachable half — was not re-run and is unaffected: this increment changed what
-the mailbox will hand back, and touched nothing about how the hub is started. Its record stands in
+5.1, the installer's reachable half — was not re-run and is unaffected: nothing since has touched
+how the hub is started. Its record stands in
 [specs/06-a-machine-that-is-not-this-one.md](specs/06-a-machine-that-is-not-this-one.md).
 
 ---
