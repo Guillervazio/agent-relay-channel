@@ -233,20 +233,21 @@ public sealed class ChannelService(MessageStore store, WaiterRegistry registry, 
         // Waiter primero, consulta después: así no se cuela un mensaje entre ambas.
         using Waiter waiter = registry.Register(WaiterRegistry.InboxKey(agent));
 
-        IReadOnlyList<Message> messages = await store.GetInboxAsync(agent, includeUnanswered, since, ct);
+        (IReadOnlyList<Message> messages, IReadOnlyList<string> claimed) =
+            await store.ClaimInboxAsync(agent, includeUnanswered, since, ct);
         if (messages.Count == 0 && seconds > 0)
         {
             if (await waiter.WaitAsync(TimeSpan.FromSeconds(seconds), ct) is not null)
             {
-                messages = await store.GetInboxAsync(agent, includeUnanswered, since, ct);
+                (messages, claimed) = await store.ClaimInboxAsync(agent, includeUnanswered, since, ct);
             }
         }
 
-        if (messages.Count > 0)
+        // Después del commit y sólo con lo que esta llamada se llevó. Derivarlo del estado
+        // devuelto anunciaría también lo que la ventana de replay trae ya entregado.
+        if (claimed.Count > 0)
         {
-            List<string> justDelivered = messages.Where(m => m.Status == MessageStatus.Pending).Select(m => m.Id).ToList();
-            await store.MarkDeliveredAsync(justDelivered, ct);
-            events?.PublishDelivered(justDelivered);
+            events?.PublishDelivered(claimed);
         }
 
         return messages;

@@ -164,25 +164,12 @@ public sealed class MessageStore
     }
 
     /// <summary>
-    /// Correo del agente. Por defecto sólo lo no entregado; <paramref name="includeUnanswered"/>
-    /// añade los requests ya entregados que siguen sin respuesta, y <paramref name="replaySince"/>
-    /// añade todo lo dirigido al agente desde ese instante, sea cual sea su tipo y su estado.
+    /// Los tres criterios del buzón. Están aquí y no dentro del reclamo porque son la parte que
+    /// se lee sola: qué alcanza cada uno es lo que decide P020, y el SELECT que los usa está a
+    /// treinta líneas de distancia rodeado de transacción.
     /// </summary>
-    /// <remarks>
-    /// Los tres criterios se suman en un OR y no se excluyen: un mensaje que cumple dos sale una
-    /// vez. La ventana es lo único que alcanza a un aviso ya entregado, porque un aviso no tiene
-    /// estado terminal — un request se drena solo al pasar a <c>answered</c>, y un aviso se queda
-    /// en <c>delivered</c> para siempre, de modo que sin cota devolvería el histórico entero.
-    /// <para>
-    /// Se mide sobre <c>created_at</c> porque no hay columna de entrega, y añadirla no está
-    /// disponible: P007 crea el esquema con <c>CREATE … IF NOT EXISTS</c>, que no toca una tabla
-    /// que ya existe. Todas las fechas se guardan en el mismo ISO 8601 UTC de ancho fijo, así que
-    /// comparar texto y comparar instantes coincide — es de lo que ya vive el <c>ORDER BY</c>.
-    /// </para>
-    /// <para>Ninguna de las tres ramas escribe: releer no cambia nada.</para>
-    /// </remarks>
-    public async Task<IReadOnlyList<Message>> GetInboxAsync(
-        string agent, bool includeUnanswered = false, DateTimeOffset? replaySince = null, CancellationToken ct = default)
+    private static void BindInbox(
+        SqliteCommand command, string agent, bool includeUnanswered, DateTimeOffset? replaySince)
     {
         List<string> reachable = new List<string> { "status = 'pending'" };
         if (includeUnanswered)
@@ -195,8 +182,6 @@ public sealed class MessageStore
             reachable.Add("created_at >= $since");
         }
 
-        await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
-        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = SelectSql
             + $" WHERE to_agent = $agent AND ({string.Join(" OR ", reachable)}) ORDER BY created_at";
         command.Parameters.AddWithValue("$agent", agent);
@@ -204,38 +189,85 @@ public sealed class MessageStore
         {
             command.Parameters.AddWithValue("$since", Format(since));
         }
-
-        List<Message> messages = new List<Message>();
-        await using SqliteDataReader reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            messages.Add(Read(reader));
-        }
-
-        return messages;
     }
 
-    public async Task MarkDeliveredAsync(IEnumerable<string> ids, CancellationToken ct = default)
+    /// <summary>
+    /// El buzón, leído y marcado en una sola transacción. Devuelve lo que este llamante se lleva,
+    /// con el estado que la fila tiene ya escrito: lo recién reclamado sale <c>delivered</c>, no
+    /// <c>pending</c>.
+    /// </summary>
+    /// <remarks>
+    /// Sustituye al par <c>GetInboxAsync</c> + <c>MarkDeliveredAsync</c> en el camino del buzón, y
+    /// la razón es una carrera, no la comodidad. Entre la lectura y el marcado cabía otro sondeo
+    /// del mismo agente: los dos leían las mismas filas y las dos respuestas HTTP se llevaban el
+    /// mensaje, aunque sólo una lo marcase. La transacción es de escritura desde que empieza, así
+    /// que el segundo sondeo espera y su SELECT ya no ve pendiente lo que el primero se llevó.
+    /// <para>
+    /// Es la forma de H007 que <c>AddResponseAsync</c> ya usa: la decisión de devolver salió de una
+    /// fila leída, así que el WHERE del UPDATE la repite. Aquí el recuento de filas afectadas es
+    /// además lo que dice qué se reclamó de verdad y qué venía ya entregado por la ventana.
+    /// </para>
+    /// <para>
+    /// Lo que esto no arregla: el mensaje se sigue marcando antes de que el cliente lo tenga. Una
+    /// respuesta perdida en tránsito lo saca del buzón por defecto igual que antes, y la vuelta
+    /// sigue siendo <c>?replay=N</c> — P020. Reconocimiento y reintento son P001, y no es esto.
+    /// </para>
+    /// </remarks>
+    public async Task<(IReadOnlyList<Message> Messages, IReadOnlyList<string> Claimed)> ClaimInboxAsync(
+        string agent, bool includeUnanswered = false, DateTimeOffset? replaySince = null, CancellationToken ct = default)
     {
-        IReadOnlyCollection<string> list = ids as IReadOnlyCollection<string> ?? ids.ToList();
-        if (list.Count == 0)
-        {
-            return;
-        }
-
         await using SqliteConnection connection = await OpenAsync(ct).ConfigureAwait(false);
         await using DbTransaction transaction = await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await using SqliteCommand command = connection.CreateCommand();
-        command.Transaction = (SqliteTransaction)transaction;
-        command.CommandText = "UPDATE messages SET status = 'delivered' WHERE id = $id AND status = 'pending'";
-        SqliteParameter parameter = command.Parameters.Add("$id", SqliteType.Text);
 
-        foreach (string id in list)
+        List<Message> read = new List<Message>();
+        await using (SqliteCommand select = connection.CreateCommand())
         {
-            parameter.Value = id;
-            await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            select.Transaction = (SqliteTransaction)transaction;
+            BindInbox(select, agent, includeUnanswered, replaySince);
+            await using SqliteDataReader reader = await select.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                read.Add(Read(reader));
+            }
         }
+
+        if (read.Count == 0)
+        {
+            await transaction.CommitAsync(ct).ConfigureAwait(false);
+            return (read, Array.Empty<string>());
+        }
+
+        List<Message> messages = new List<Message>(read.Count);
+        List<string> claimed = new List<string>();
+        await using (SqliteCommand update = connection.CreateCommand())
+        {
+            update.Transaction = (SqliteTransaction)transaction;
+            update.CommandText = "UPDATE messages SET status = 'delivered' WHERE id = $id AND status = 'pending'";
+            SqliteParameter parameter = update.Parameters.Add("$id", SqliteType.Text);
+
+            foreach (Message message in read)
+            {
+                if (message.Status != MessageStatus.Pending)
+                {
+                    messages.Add(message);
+                    continue;
+                }
+
+                parameter.Value = message.Id;
+                if (await update.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1)
+                {
+                    messages.Add(message with { Status = MessageStatus.Delivered });
+                    claimed.Add(message.Id);
+                }
+                else
+                {
+                    messages.Add(message);
+                }
+            }
+        }
+
         await transaction.CommitAsync(ct).ConfigureAwait(false);
+        return (messages, claimed);
     }
 
     /// <summary>
