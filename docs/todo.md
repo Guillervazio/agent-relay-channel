@@ -15,15 +15,21 @@
   trailing `/**` being stripped) matches `.github/workflows/gate.yml`, and `Dockerfile` matches
   the file
 
-**What is verified and what is not.** Increment 10 changed no code, so the four smoke suites in
-`scripts/test-all.sh` were **not** re-run: nothing here touches the wire, a surface or a script,
-and increment 09's run of them stands. What is genuinely unverified is the one thing this increment
-is about — **whether a rule now loads for a file that did not match before**. It cannot be checked
-from inside the session that made the change, because a rule already opened by hand is not injected
-again. The check is to open `.github/workflows/gate.yml` or the `Dockerfile` in a **fresh** session
-and see `build-and-packages.project.md` arrive, or to count the loads in that session's transcript
-as [P021](adr/P021-a-rule-that-never-arrived.md) describes. Until somebody does that, the routing
-table in `CLAUDE.md` is the part that is known to work, because it is always in context.
+**The check increment 10 could not run has now been run** (7 September 2026, in a fresh session,
+which is the only place it can be run — a rule already opened by hand is not injected again).
+Opening the `Dockerfile` brought `build-and-packages.project.md`; opening
+`.github/workflows/gate.yml` brought `testing.project.md`; opening `ChannelService.cs` brought the
+five it should and not `protocol.project.md`, which does not cover that file. Seven rule files over
+three reads, none opened by hand. The routing table was also obeyed where it costs something: the
+SDK bump was refused as a decision needing approval, and the `limit` on the inbox was refused by
+name.
+
+What the run found is in the same session's transcript and is fixed here: two rows of that table
+said *base and appendix* for paths the base cannot carry, which is a precondition promising
+something it cannot deliver. Split in two, with what actually arrives named.
+
+Increment 10 changed no code, so the four smoke suites in `scripts/test-all.sh` were **not** re-run
+and increment 09's run of them stands.
 
 Everything increment 06 verified about hosting — the container, the SDK image, Windows PowerShell
 5.1, the installer's reachable half — was not re-run and is unaffected: nothing since has touched

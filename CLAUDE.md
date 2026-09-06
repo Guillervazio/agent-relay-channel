@@ -69,10 +69,13 @@ edited **there**; `<area>.project.md` is ours. A deviation from a base clause go
 `## Deviations` in that appendix, naming the clause it replaces, and **that entry wins**. Those
 areas: `coding-conventions`, `testing`, `build-and-packages`, `api-guidelines`.
 
-The appendix may carry `paths:` the base does not, and two of them do: a path that exists only in
-this project cannot be added to a file edited in another repository. Where they differ, opening
-such a file loads the appendix alone — which is why the table below says *base and appendix* and
-the appendix's first line links to its base.
+The appendix may carry `paths:` the base does not, and two of them do — `testing.project.md` covers
+`scripts/**` and `.github/workflows/**`, `build-and-packages.project.md` covers `global.json`, the
+`Dockerfile` and the workflows — because a path that exists only in this project cannot be added
+to a file
+edited in another repository. **Opening one of those files loads the appendix alone**, verified on
+7 September 2026 rather than assumed. The table below says which rows those are, and every
+appendix's first line links to its base.
 
 Four more have **no base**, and say so in their first line: `architecture`, `protocol`,
 `persistence`, `concurrency`. The first replaces a base that did not survive contact with this
@@ -109,8 +112,10 @@ in [P021](docs/adr/P021-a-rule-that-never-arrived.md).
 | `WaiterRegistry.cs`, `EventStream.cs`, `HubApp.cs` | …and [concurrency.project.md](.claude/rules/concurrency.project.md) |
 | `src/Arc.Hub/**`, `Models.cs`, `ChannelService.cs` | …and `api-guidelines`, base and appendix |
 | `src/Arc.Hub/**`, `src/Arc.Cli/**`, `Models.cs`, `docs/PROTOCOL.md` | …and [protocol.project.md](.claude/rules/protocol.project.md) |
-| `tests/**`, `scripts/**`, `.github/workflows/**` | `testing`, base and appendix |
-| `*.csproj`, `*.props`, `*.slnx`, `global.json`, `Dockerfile`, `.github/workflows/**` | `build-and-packages`, base and appendix |
+| `tests/**/*.cs` | `testing`, base and appendix — and [persistence.project.md](.claude/rules/persistence.project.md), whose deviations decide how a test reaches the store |
+| `scripts/**`, `.github/workflows/**` | [testing.project.md](.claude/rules/testing.project.md) — its base covers `tests/**/*.cs` only and will **not** arrive |
+| `*.csproj`, `*.props`, `*.slnx` | `build-and-packages`, base and appendix |
+| `global.json`, `Dockerfile`, `.github/workflows/**` | [build-and-packages.project.md](.claude/rules/build-and-packages.project.md), and open its base **by hand**: the clause about a version pinned in step with a container stage or a CI image is in the base, which cannot carry these paths |
 | `docs/adr/`, `docs/specs/`, `docs/todo.md`, `docs/backlog.md` | no area rule governs these — they are the `close-increment` and `reconcile-rules` skills' subject |
 | a rule in `.claude/rules/` | `reconcile-rules`, and the area's base if it has one |
 
