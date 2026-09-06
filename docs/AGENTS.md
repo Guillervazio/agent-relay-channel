@@ -50,6 +50,11 @@ arc inbox
 If a request has arrived, answer it before carrying on with your own work: every minute
 you take is a minute the other one spends idle.
 
+If your previous turn was cut short, or a mailbox read never came back, look again over a
+window instead — `arc inbox --replay 300` re-reads the last five minutes whether or not you
+had already read it. It is the only way back to a notice, since `--unanswered` speaks of
+answering and a notice is never answered, and it consumes nothing.
+
 ```bash
 arc respond req_1a2b3c --body-file answer.md
 ```

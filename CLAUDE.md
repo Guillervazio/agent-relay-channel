@@ -10,7 +10,7 @@ channel is HTTP long polling, not a broker. .NET 10, SQLite, three surfaces over
 
 ```bash
 dotnet build                       # build the solution
-dotnet test                        # the 119 tests; no container, no network
+dotnet test                        # the 133 tests; no container, no network
 dotnet format                      # apply .editorconfig
 dotnet run --project src/Arc.Hub   # the hub on :8765 (needs ARC_TOKEN, or ARC_ALLOW_ANONYMOUS=1)
 
@@ -52,7 +52,8 @@ logic in `ChannelService` with REST, MCP and the CLI as facades; SQLite on a fil
 token with the agent name as attribution and never authorisation; the identifier scheme; 403 on
 another agent's mailbox but 404 on somebody else's message; the schema created at startup; the `SQLitePCLRaw` pin; the CLI's exit
 codes as contract; the unauthenticated observer page; the channel explaining itself in the MCP
-handshake rather than in every repository that adopts it; MIT as the licence. Do not re-litigate them; read the record
+handshake rather than in every repository that adopts it; recovering a delivered message with a
+window rather than a state, which writes nothing; MIT as the licence. Do not re-litigate them; read the record
 if you need the argument.
 
 ---

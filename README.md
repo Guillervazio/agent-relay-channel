@@ -171,7 +171,7 @@ Those three are the complete cycle. The other commands cover the remaining cases
 |---|---|
 | `arc ask --to A --body-file f [--wait N]` | Ask and block until the answer |
 | `arc await <request_id> [--wait N]` | Resume the wait on a request that already expired |
-| `arc inbox [--wait N] [--unanswered]` | Your own mailbox. `--unanswered` recovers what was delivered and is still unanswered |
+| `arc inbox [--wait N] [--unanswered] [--replay N]` | Your own mailbox. `--unanswered` recovers requests delivered and still unanswered; `--replay N` re-reads the last N seconds, which is the only thing that returns a notice |
 | `arc respond <request_id> --body-file f` | Answer a request addressed to you |
 | `arc note --to A --body-file f` | Notice of an accomplished fact, without waiting for an answer |
 | `arc thread <thread_id>` | A conversation — your messages in it. Exit code 1 if none are |
@@ -365,6 +365,11 @@ waiting for each other show up right there.
 
 A request that expired **is not lost**: it is still alive in the recipient's mailbox and is
 recovered with `arc inbox --unanswered` or `arc await <request_id>`.
+
+**A notice you think you missed** — a turn cut short, a mailbox read whose reply never arrived —
+comes back with `arc inbox --replay 300`: the last five minutes, whatever you had already read.
+`--unanswered` will not do it, because a notice is never answered. Re-reading consumes nothing,
+so it is safe to run twice.
 
 ## A note on the ChatGPT desktop app
 

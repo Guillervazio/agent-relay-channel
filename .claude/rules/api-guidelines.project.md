@@ -120,6 +120,16 @@ nothing happened, which is true and useless.
 **before** doing any work: a rejected `wait` must not leave a request created in the channel and
 then answer 422 to the agent that created it.
 
+**This is a rule about bounds a caller names, not about waiting.** `?replay=` is the second one
+(`invalid_replay`, `ChannelService.ValidateReplay`, next to `ValidateWait`), and it is refused
+rather than narrowed for the same reason: a request quietly cut down comes back
+indistinguishable from an honest empty answer, so the caller never finds out it was overruled. A
+third such parameter is refused the same way, and gets its own code — one shared code cannot say
+which of two bounds was the problem.
+<br>**What this does not authorise: refusing a value the caller can sensibly mean.** `wait=0` is
+"do not wait" and `replay=0` is "do not look back"; both are accepted. Only what falls outside
+the published range is refused.
+
 A timed-out poll is a **200 with an `outcome`**, not a 404 and not a 408: nothing failed, and the
 request it was waiting on is still alive in the mailbox. Every long-lived handler honours
 `HttpContext.RequestAborted`; the mechanics are in
@@ -182,9 +192,19 @@ Recorded so the next reader does not go looking:
   which is [H005](../../docs/adr/house/H005-validation-belongs-to-the-command.md) satisfied, not
   avoided: it applies whether the call arrives over REST, MCP or the CLI.
 * **Controllers, `[ProducesResponseType]`, model binding.** Minimal APIs, no MVC.
-* **Paging.** No listing is unbounded, but the limits are fixed server-side rather than
-  parameters: the inbox is one agent's, and `ListThreadsAsync` takes a `limit` defaulting to 200.
-  There is no `sortBy`, so the base's allow-list clause has nothing to guard.
+* **Paging.** No listing is paged: nothing takes an offset or a cursor, and no caller can ask
+  for page two. `ListThreadsAsync` takes a `limit` defaulting to 200. The inbox returns what is
+  pending plus whatever `?unanswered=` and `?replay=` ask back, and `replay` is a bound the
+  **caller** supplies — which this clause used to deny, on the reasoning that being one agent's
+  mailbox was bound enough. It is not: a request leaves the recovery set by being answered and a
+  note never does, so a recovery that reaches notices needs a bound from somewhere, and the
+  caller is the only party that knows how far back to look
+  ([P020](../../docs/adr/P020-a-recovery-window-not-a-state.md)). There is no `sortBy`, so the
+  base's allow-list clause has nothing to guard.
+  <br>**What this does not authorise: a `limit`, an `offset` or a cursor on the inbox.** `replay`
+  decides *which* messages are in the answer, not how much of a fixed answer you are given —
+  every message inside the window comes back on every call, and that is exactly what makes
+  re-reading repeatable.
 * **Named authorisation policies.** There is one token and one rule; a policy framework over that
   would be ceremony.
 
