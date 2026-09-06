@@ -2,12 +2,15 @@
 
 **Nothing in progress.** Increments 01 to 11 are closed in [specs/](specs/).
 
-**One thing to watch, and it is not verified.** Increment 11 copied `shared/architecture.md` and
-`shared/build-and-packages.md` from `dotnet-house`'s `docs/a-base-that-did-not-survive-b`, which
-was **not yet merged** when the copies were taken. If that branch changed before merging, these two
-copies are of something that never shipped. Re-take them from the package's `master` at 0.3.0 and
-diff; they should differ only in the `paths:` block of `api-guidelines` and in the rewritten
-`H###` links, as every other copy here does.
+**The copy check increment 11 left open is now closed.** Those two files had been taken from a
+branch of `dotnet-house` that was not yet merged. It merged as `c96f84a`, shipping **0.3.0**, and
+all five `shared/` copies were diffed against that `master`: they differ only in the adapted
+`paths:` block, the record links rewritten to `docs/adr/house/`, and two links in `architecture.md`
+to files that exist only in the package. The thirteen `H###` copies are byte-identical.
+
+Nothing here re-checks itself. A copy that has fallen behind reads exactly like a copy that is
+current, so **the next time the package ships, run that diff** rather than assuming these are still
+true.
 
 **Last verified** (7 September 2026, at the close of increment 11):
 

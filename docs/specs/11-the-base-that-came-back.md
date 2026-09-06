@@ -26,8 +26,10 @@ package's files only where a copy is allowed to differ, checked with `diff`; eve
 the edited files resolves, checked mechanically; and the appendix was read clause by clause against
 the base rather than trusted to have stopped overlapping.
 
-**One thing is not verified and [todo.md](../todo.md) says so:** the copies were taken from the
-package's branch before it was merged.
+**One thing was not verified at close and [todo.md](../todo.md) said so:** the copies were taken
+from the package's branch before it was merged. It merged the same day as `c96f84a`, shipping
+0.3.0, and the diff was run against that `master`: all five copies and the thirteen `H###` records
+are what shipped.
 
 ---
 
