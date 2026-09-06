@@ -4,6 +4,8 @@ paths:
   - "**/*.props"
   - "**/*.slnx"
   - "global.json"
+  - "Dockerfile"
+  - ".github/workflows/**"
 ---
 
 # Build and packages — this project
