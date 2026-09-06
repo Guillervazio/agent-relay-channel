@@ -6,13 +6,21 @@ paths:
 
 # Architecture — this project
 
-**This area has no shared base, deliberately.** `dotnet-house`'s `shared/architecture.md`
-describes a five-role Clean Architecture with aggregate-root repositories, vertical slices and
-command handlers. ARC would have to deviate from five of its clauses, and by the package's own
-criterion that many deviations means the base was a project decision in disguise. The finding is
-in `docs/backlog.md` and belongs to the package, not to this repository.
+Appendix to [shared/architecture.md](shared/architecture.md), **and it was not one until
+increment 11**. The base used to describe a five-role Clean Architecture with aggregate-root
+repositories, vertical slices and command handlers, which ARC would have had to deviate from five
+times over; this file was written standalone and the finding was reported to the package. The
+package demoted it — the shape is now
+[shapes/clean-architecture.md](https://github.com/Guillervazio/dotnet-house/blob/master/shapes/clean-architecture.md),
+which nothing inherits — and rewrote the base as the four clauses ARC and the originating project
+had reached separately. This appendix stops repeating those four and answers them instead;
+[P022](../../docs/adr/P022-the-base-that-came-back.md) is why adopting it beat staying standalone.
 
-## Three roles, not five
+**Deviations: none.** Not a claim of virtue — the base is now short enough, and derived from this
+repository among others, that there is nothing here to depart from. If that stops being true, the
+section goes at the bottom like every other area's.
+
+## Three roles
 
 ```
 Arc.Cli  → Arc.Core
@@ -21,7 +29,8 @@ Arc.Core → the BCL and Microsoft.Data.Sqlite, and nothing else
 Arc.Tests → Arc.Core, Arc.Cli, Arc.Hub
 ```
 
-`Arc.Core` never references `Arc.Hub` or `Arc.Cli`, and neither surface references the other.
+Forbidden outright, as edges rather than as an absence: `Arc.Core → Arc.Hub`, `Arc.Core → Arc.Cli`,
+`Arc.Hub → Arc.Cli`, `Arc.Cli → Arc.Hub`.
 
 `Arc.Tests → Arc.Cli` and `Arc.Tests → Arc.Hub` are the two edges that are not a surface pointing
 at the core. Both exist so the suite can reach a surface's composition root, and both surfaces have
@@ -50,11 +59,11 @@ arranging a test is not.
 There is no dependency-injection container in `Arc.Core`: the hub wires it up, the CLI does not
 need one.
 
-## The rule this file exists for
+## Which role translates, and which one decides
 
-**The rules of the channel live once, in `ChannelService`.** `Arc.Hub`, `Arc.Cli` and any future
-surface *translate and nothing else*: bind the input, call exactly one `ChannelService` method,
-render the result in the idiom of that surface.
+The base's edge clause, answered: **the rules of the channel live once, in `ChannelService`.**
+`Arc.Hub`, `Arc.Cli` and any future surface *translate and nothing else* — bind the input, call
+exactly one `ChannelService` method, render the result in the idiom of that surface.
 
 Forbidden in a surface:
 
@@ -62,9 +71,9 @@ Forbidden in a surface:
 * a second copy of a validation,
 * reaching into `MessageStore` for something a `ChannelService` method already exposes.
 
-The reason is not tidiness. There are three surfaces over one channel, and the failure mode is
-that two of them answer the same question differently — which nobody notices, because no one
-person uses all three.
+There are **three** edges here, which is what makes the base's reason concrete rather than
+theoretical: no one person uses all three, so two of them answering the same question differently
+is invisible until somebody depends on the one that is wrong.
 
 ### The exception, named because it is real
 
@@ -117,13 +126,15 @@ What this does not authorise: leaving the next one absent. This entry exists bec
 says why not" is satisfied by writing the reason down, and an operation missing from two surfaces
 with no entry here is the failure the section names, not a smaller version of it.
 
-## No new architectural patterns
+## What "no new patterns" amounts to here
 
-There is no mediator, no dispatcher, no repository interface, no reflection-based registration —
-and no interfaces at all in `Arc.Core`. Adding the first one is a decision that needs
-[H002](../../docs/adr/house/H002-single-implementation-interfaces.md)'s test: it must remove a
-constraint that cannot be removed otherwise, and "so a test can substitute it" is not that
-constraint while the real store runs on a temporary file in one millisecond.
+The base forbids them; this is the state it is protecting. `Arc.Core` has **no interfaces at all**,
+which is H002 satisfied by absence rather than by argument, and there is no mediator, no
+dispatcher, no repository interface and no reflection-based registration anywhere.
+
+So the base's test lands on this repository with one answer already known: "so a test can
+substitute it" fails it here in particular, because the real store runs on a temporary file in one
+millisecond and substituting it removes no constraint at all.
 
 ## Where a type goes
 
@@ -142,6 +153,3 @@ That last one is one constant and no behaviour, and it stays that way. It is not
 own documentation goes — that is its `[Description]` — and it is not where a rule of the channel
 goes, because a rule that lands there is enforced on nobody: two of the three surfaces never see
 the handshake at all.
-
-The folder tree is not written down here. `Arc.slnx` and a directory listing describe it better
-and do not go stale.
