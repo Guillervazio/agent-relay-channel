@@ -181,7 +181,50 @@ check "y con espera se niega en vez de gastar el turno" $?
 grep -q 'self_addressed' "$WORK/propia-espera.out"
 check "y le dice con qué código, no sólo que algo fue mal" $?
 
-echo "== 8. Identidad obligatoria también en MCP =="
+echo "== 8. Un aviso que se dio por entregado =="
+# Lo que ve un modelo es texto, no un codigo de estado: la afirmacion es que el
+# cuerpo esta en la redaccion que arc_inbox devuelve.
+cat > "$WORK/aviso-perdido.json" <<'JSON'
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"arc_note","arguments":{"to":"recupera-mcp","body":"La clave está en el fichero"}}}
+JSON
+rpc "$A" "$WORK/aviso-perdido.json" > /dev/null
+
+cat > "$WORK/lee.json" <<'JSON'
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"arc_inbox","arguments":{"wait":0}}}
+JSON
+rpc "recupera-mcp" "$WORK/lee.json" > "$WORK/lee.out"
+grep -q 'La clave' "$WORK/lee.out"
+check "arc_inbox entrega el aviso" $?
+
+# Y a partir de aqui el buzon por defecto ya no lo tiene.
+rpc "recupera-mcp" "$WORK/lee.json" > "$WORK/lee2.out"
+! grep -q 'La clave' "$WORK/lee2.out"
+check "y no lo vuelve a entregar" $?
+
+cat > "$WORK/lee-unanswered.json" <<'JSON'
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"arc_inbox","arguments":{"wait":0,"unanswered":true}}}
+JSON
+rpc "recupera-mcp" "$WORK/lee-unanswered.json" > "$WORK/lee3.out"
+! grep -q 'La clave' "$WORK/lee3.out"
+check "unanswered tampoco: un aviso no se responde" $?
+
+cat > "$WORK/lee-replay.json" <<'JSON'
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"arc_inbox","arguments":{"wait":0,"replay":60}}}
+JSON
+rpc "recupera-mcp" "$WORK/lee-replay.json" > "$WORK/lee4.out"
+grep -q 'La clave' "$WORK/lee4.out"
+check "con replay vuelve, y con su cuerpo" $?
+
+# Una negativa que el modelo no puede leer no es una negativa: es lo que el
+# incremento 08 encontro, y lo que este no puede volver a perder.
+cat > "$WORK/lee-malo.json" <<'JSON'
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"arc_inbox","arguments":{"wait":0,"replay":90000}}}
+JSON
+rpc "recupera-mcp" "$WORK/lee-malo.json" > "$WORK/lee5.out"
+grep -q 'invalid_replay' "$WORK/lee5.out"
+check "y una ventana fuera de rango se lee como invalid_replay" $?
+
+echo "== 9. Identidad obligatoria también en MCP =="
 SESSION=""
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/mcp" \
   -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \

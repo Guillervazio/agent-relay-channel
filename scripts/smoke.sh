@@ -243,6 +243,49 @@ out=$(curl -s -w '
 [ "$(printf '%s' "$out" | tail -n1)" = "400" ] && printf '%s' "$out" | grep -q 'invalid_json'
 check "unas refs ilegibles son un cuerpo ilegible: 400 invalid_json" $?
 
+echo "== 9. Un aviso que se dio por entregado =="
+# El buzon marca entregado y luego devuelve, asi que una respuesta HTTP perdida
+# se lleva los mensajes del buzon por defecto sin que el cliente los llegue a
+# ver. Un request se recupera con unanswered; un aviso no se responde, asi que
+# esa consulta no lo devuelve nunca. La ventana es lo unico que lo alcanza.
+D="recupera-pc4"
+AVISO='La clave está en el fichero, con acentos: ñáéíóú'
+body '{"to":"'"$D"'","subject":"Despliegue","body":"'"$AVISO"'"}' aviso.json
+curl -s -o /dev/null -X POST "$URL/v1/notes" "${hdr[@]}" -H "X-ARC-Agent: $A" --data-binary "@$WORK/aviso.json"
+
+curl -s "$URL/v1/inbox/$D" "${hdr[@]}" -H "X-ARC-Agent: $D" | grep -q 'ñáéíóú'
+check "el aviso llega al buzon del destinatario" $?
+
+# A partir de aqui se simula la respuesta perdida: la lectura ocurrio, su
+# resultado no llego a ninguna parte, y el buzon por defecto ya esta vacio.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/inbox/$D" "${hdr[@]}" -H "X-ARC-Agent: $D")" = "204" ]
+check "y no vuelve a aparecer en el buzon por defecto" $?
+
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/inbox/$D?unanswered=true" "${hdr[@]}" -H "X-ARC-Agent: $D")" = "204" ]
+check "ni con unanswered, que habla de responder y un aviso no se responde" $?
+
+# Lo que se afirma es el cuerpo y no el 200: una recuperacion que devolviera la
+# fila sin su cuerpo daria el mismo codigo de estado.
+curl -s "$URL/v1/inbox/$D?replay=60" "${hdr[@]}" -H "X-ARC-Agent: $D" > "$WORK/replay.json"
+grep -q 'ñáéíóú' "$WORK/replay.json"
+check "con replay vuelve, y vuelve con su cuerpo intacto" $?
+
+grep -q 'Despliegue' "$WORK/replay.json"
+check "y con su asunto" $?
+
+# Releer no consume: si la recuperacion se gastara a si misma, seria el mismo
+# defecto que arregla, esta vez sin nada detras.
+curl -s "$URL/v1/inbox/$D?replay=60" "${hdr[@]}" -H "X-ARC-Agent: $D" | grep -q 'ñáéíóú'
+check "y releer otra vez lo devuelve igual: no consume nada" $?
+
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/inbox/$D" "${hdr[@]}" -H "X-ARC-Agent: $D")" = "204" ]
+check "sin dejar de estar entregado para el buzon por defecto" $?
+
+out=$(curl -s -w '
+%{http_code}' "$URL/v1/inbox/$D?replay=90000" "${hdr[@]}" -H "X-ARC-Agent: $D")
+[ "$(printf '%s' "$out" | tail -n1)" = "422" ] && printf '%s' "$out" | grep -q 'invalid_replay'
+check "una ventana fuera de rango se rechaza, no se recorta" $?
+
 echo
 echo "$pass correctas, $fail fallidas"
 [ "$fail" -eq 0 ]
