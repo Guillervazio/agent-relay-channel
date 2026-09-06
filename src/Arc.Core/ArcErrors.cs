@@ -46,6 +46,14 @@ public static class ArcErrors
     public const string InvalidWait = "invalid_wait";
 
     /// <summary>
+    /// <c>replay</c> fuera del rango que admite el hub. Es un código propio y no
+    /// <see cref="InvalidWait"/> porque acota otra cosa: <c>wait</c> mide cuánto se retiene una
+    /// conexión hacia adelante, <c>replay</c> cuánto se mira hacia atrás, y un cliente que pide
+    /// los dos necesita saber cuál de ellos le rechazaron.
+    /// </summary>
+    public const string InvalidReplay = "invalid_replay";
+
+    /// <summary>
     /// Un agente pide esperar su propia respuesta. Escribirse a sí mismo sí vale — un aviso
     /// siempre pudo, y una petición con <c>wait</c> a 0 queda en el buzón del que la manda —;
     /// lo que no vale es bloquearse esperando a quien está bloqueado.

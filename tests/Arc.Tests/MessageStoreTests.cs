@@ -43,6 +43,20 @@ public sealed class MessageStoreTests : IAsyncLifetime
         CreatedAt = DateTimeOffset.UtcNow
     };
 
+    private static Message Note(string id = "msg_1", string to = "codex-pc2", string body = "rama subida",
+        DateTimeOffset? createdAt = null) => new()
+        {
+            Id = id,
+            ThreadId = "thr_2",
+            From = "claude-pc1",
+            To = to,
+            Kind = MessageKind.Note,
+            Subject = "Despliegue",
+            Body = body,
+            Status = MessageStatus.Pending,
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow
+        };
+
     [Fact]
     public async Task Un_mensaje_vuelve_tal_y_como_entro()
     {
@@ -78,6 +92,60 @@ public sealed class MessageStoreTests : IAsyncLifetime
         // recuperación para un agente que se cayó antes de contestar.
         IReadOnlyList<Message> pending = await _store.GetInboxAsync("codex-pc2", includeUnanswered: true);
         Assert.Equal("req_1", Assert.Single(pending).Id);
+    }
+
+    /// <summary>
+    /// El corazón del incremento 09. Un aviso entregado no lo devuelve ninguna de las dos
+    /// consultas anteriores — <c>includeUnanswered</c> lo excluye por construcción, porque su
+    /// nombre habla de responder y un aviso no se responde — y la afirmación que importa no es
+    /// que vuelva, sino que vuelva entero: una recuperación que devolviera la fila sin su cuerpo
+    /// pasaría cualquier test que contase mensajes.
+    /// </summary>
+    [Fact]
+    public async Task Un_aviso_entregado_vuelve_con_su_cuerpo_dentro_de_la_ventana()
+    {
+        await _store.AddAsync(Note(body: "rama feat/pagos subida, con acentos: ñáéíóú"));
+        await _store.MarkDeliveredAsync(["msg_1"]);
+
+        Assert.Empty(await _store.GetInboxAsync("codex-pc2"));
+        Assert.Empty(await _store.GetInboxAsync("codex-pc2", includeUnanswered: true));
+
+        Message recuperado = Assert.Single(
+            await _store.GetInboxAsync("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+        Assert.Equal("msg_1", recuperado.Id);
+        Assert.Equal("rama feat/pagos subida, con acentos: ñáéíóú", recuperado.Body);
+        Assert.Equal("Despliegue", recuperado.Subject);
+        Assert.Equal(MessageKind.Note, recuperado.Kind);
+    }
+
+    [Fact]
+    public async Task La_ventana_no_alcanza_lo_anterior_a_ella()
+    {
+        await _store.AddAsync(Note("msg_viejo", createdAt: DateTimeOffset.UtcNow.AddHours(-2)));
+        await _store.AddAsync(Note("msg_nuevo"));
+        await _store.MarkDeliveredAsync(["msg_viejo", "msg_nuevo"]);
+
+        IReadOnlyList<Message> ventana =
+            await _store.GetInboxAsync("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        Assert.Equal("msg_nuevo", Assert.Single(ventana).Id);
+    }
+
+    /// <summary>
+    /// Un mensaje que cumple dos criterios a la vez sale una sola vez: el OR los suma dentro de
+    /// un mismo WHERE, no une tres consultas.
+    /// </summary>
+    [Fact]
+    public async Task Un_mensaje_que_cumple_dos_criterios_no_sale_dos_veces()
+    {
+        await _store.AddAsync(Request());
+        await _store.MarkDeliveredAsync(["req_1"]);
+
+        IReadOnlyList<Message> buzon = await _store.GetInboxAsync(
+            "codex-pc2", includeUnanswered: true, replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        Assert.Equal("req_1", Assert.Single(buzon).Id);
     }
 
     [Fact]

@@ -91,3 +91,13 @@ Stored as text in a fixed round-trip format, read back with `DateTimeOffset`. A 
 the round trip is not bit-identical to the one that went in, so a test comparing one side from
 the database against one side from memory asserts with a tolerance and says what the tolerance is
 distinguishing. Two in-memory values are compared exactly.
+
+That format is **load-bearing beyond the round trip**. `created_at` is compared as text inside
+SQL — `ORDER BY` everywhere, and since increment 09 a `>=` against a bound the caller supplied —
+which is correct only because every row goes through `MessageStore.Format` and comes out
+fixed-width UTC. A row written with another precision, another offset or another format would
+sort and filter wrongly while still reading back as a perfectly good `DateTimeOffset`.
+<br>**What this does not authorise: comparing timestamps as text where the rows do not share that
+guarantee, or relaxing `Format`.** Changing it is a data migration, and
+[P007](../../docs/adr/P007-the-schema-is-created-at-startup.md) says this schema cannot perform
+one.

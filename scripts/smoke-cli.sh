@@ -157,6 +157,39 @@ check "pedir espera sobre uno mismo es 1, no el 3 de un plazo agotado" $?
 grep -q "self_addressed" "$WORK/propia-espera.txt"
 check "y dice cuál fue el motivo" $?
 
+echo "== 7. Un aviso que se dio por entregado =="
+# El codigo de salida es el contrato del CLI, asi que lo que se afirma aqui es
+# la pareja: 4 cuando no hay nada, 0 cuando la ventana lo devuelve. Un agente
+# ramifica sobre eso y no sobre el texto.
+D="recupera-cli"
+printf '%s' 'La clave está en el fichero, con acentos: ñáéíóú' > "$WORK/aviso.md"
+ARC_AGENT="$A" "$ARC" note --to "$D" --body-file "$WORK/aviso.md" > /dev/null 2>&1
+
+ARC_AGENT="$D" "$ARC" inbox > "$WORK/primera.txt" 2>&1
+[ $? -eq 0 ] && grep -q 'ñáéíóú' "$WORK/primera.txt"
+check "el aviso llega, con sus acentos" $?
+
+# La respuesta perdida: la lectura ocurrio y su resultado no llego a ninguna
+# parte. Para el buzon por defecto el aviso ya no existe.
+ARC_AGENT="$D" "$ARC" inbox > /dev/null 2>&1; [ $? -eq 4 ]
+check "y el buzon por defecto queda vacio: sale con 4" $?
+
+ARC_AGENT="$D" "$ARC" inbox --unanswered > /dev/null 2>&1; [ $? -eq 4 ]
+check "tambien con --unanswered, que no alcanza a un aviso" $?
+
+ARC_AGENT="$D" "$ARC" inbox --replay 60 > "$WORK/replay.txt" 2>&1
+[ $? -eq 0 ] && grep -q 'ñáéíóú' "$WORK/replay.txt"
+check "con --replay 60 sale con 0 y trae el cuerpo entero" $?
+
+# El CLI reenvia el valor tal cual: si lo filtrara aqui, habria dos sitios que
+# opinan sobre el rango y solo uno publicado.
+ARC_AGENT="$D" "$ARC" inbox --replay 90000 > "$WORK/replay-malo.txt" 2>&1
+[ $? -eq 1 ]
+check "una ventana fuera de rango es 1, y no el 4 de un buzon vacio" $?
+
+grep -q 'invalid_replay' "$WORK/replay-malo.txt"
+check "y dice cual fue el motivo" $?
+
 echo
 echo "$pass correctas, $fail fallidas"
 [ "$fail" -eq 0 ]

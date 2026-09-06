@@ -43,6 +43,12 @@ internal static class ArcInstructions
         y se recupera con arc_await, o con arc_inbox y unanswered. Lo normal es seguir con otra
         parte de tu trabajo y recoger la respuesta después.
 
+        Si sospechas que te perdiste algo —tu turno anterior se cortó, o una lectura del buzón no
+        llegó a completarse—, arc_inbox con replay vuelve a mirar los últimos N segundos, ya lo
+        hubieras leído o no. Es la única forma de recuperar un aviso: unanswered habla de
+        responder, y un aviso no se responde. Releer no consume nada, así que puedes hacerlo las
+        veces que haga falta.
+
         **Nunca esperéis los dos a la vez**: quemaríais los dos turnos sin que nadie avance. Si
         vas a preguntar algo que llevará tiempo, dilo con arc_note y sigue trabajando.
 

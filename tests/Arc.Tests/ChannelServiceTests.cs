@@ -195,6 +195,71 @@ public sealed class ChannelServiceTests : IAsyncLifetime
         Assert.Equal(404, error.Status);
     }
 
+    /// <summary>
+    /// El caso que abre el incremento 09: la respuesta HTTP del poll se perdió, así que el aviso
+    /// ya salió del buzón por defecto y el cliente nunca llegó a verlo. Aquí el buzón vaciado es
+    /// exactamente eso — la primera lectura ocurrió y su resultado no llegó a ninguna parte.
+    /// </summary>
+    [Fact]
+    public async Task Un_aviso_cuya_respuesta_se_perdio_se_recupera_con_su_cuerpo_intacto()
+    {
+        await _channel.NoteAsync(A, B, "rama feat/pagos subida", "Despliegue", null, null);
+
+        Assert.Single(await _channel.InboxAsync(B, B, false, 0));
+        Assert.Empty(await _channel.InboxAsync(B, B, false, 0));
+        Assert.Empty(await _channel.InboxAsync(B, B, true, 0));
+
+        Message recuperado = Assert.Single(await _channel.InboxAsync(B, B, false, 0, replay: 60));
+
+        Assert.Equal("rama feat/pagos subida", recuperado.Body);
+        Assert.Equal("Despliegue", recuperado.Subject);
+        Assert.Equal(MessageKind.Note, recuperado.Kind);
+    }
+
+    /// <summary>
+    /// Releer no escribe: la segunda relectura devuelve lo mismo que la primera. Una recuperación
+    /// que se consumiera a sí misma repetiría el defecto que arregla, esta vez sin red.
+    /// </summary>
+    [Fact]
+    public async Task Releer_el_buzon_no_cambia_nada()
+    {
+        Message aviso = await _channel.NoteAsync(A, B, "rama subida", null, null, null);
+        await _channel.InboxAsync(B, B, false, 0);
+
+        Message primera = Assert.Single(await _channel.InboxAsync(B, B, false, 0, replay: 60));
+        Message segunda = Assert.Single(await _channel.InboxAsync(B, B, false, 0, replay: 60));
+
+        Assert.Equal(primera.Id, segunda.Id);
+        Assert.Equal(MessageStatus.Delivered, (await _store.GetAsync(aviso.Id))!.Status);
+        Assert.Empty(await _channel.InboxAsync(B, B, false, 0));
+    }
+
+    /// <summary>
+    /// Rechaza en vez de recortar, por lo mismo que <c>wait</c>: una ventana estrechada en
+    /// silencio devuelve menos mensajes y el llamante no puede distinguirlo de no haberlos.
+    /// </summary>
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(ChannelService.MaxReplaySeconds + 1)]
+    public async Task Una_ventana_fuera_de_rango_se_rechaza(int replay)
+    {
+        ChannelException error = await Assert.ThrowsAsync<ChannelException>(
+            () => _channel.InboxAsync(B, B, false, 0, replay));
+
+        Assert.Equal("invalid_replay", error.Code);
+        Assert.Equal(422, error.Status);
+    }
+
+    /// <summary>Cero es no mirar atrás, igual que <c>wait</c> a 0 es no esperar.</summary>
+    [Fact]
+    public async Task Una_ventana_de_cero_no_mira_atras()
+    {
+        await _channel.NoteAsync(A, B, "rama subida", null, null, null);
+        await _channel.InboxAsync(B, B, false, 0);
+
+        Assert.Empty(await _channel.InboxAsync(B, B, false, 0, replay: 0));
+    }
+
     [Fact]
     public async Task Un_agente_solo_lee_su_propio_buzon()
     {

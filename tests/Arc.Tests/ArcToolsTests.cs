@@ -118,6 +118,24 @@ public sealed class ArcToolsTests : IAsyncLifetime
         Assert.Contains(refs, inbox, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// La superficie que un modelo lee. Lo que se afirma es el cuerpo en el texto: arc_inbox
+    /// redacta lo que devuelve, así que una recuperación que trajese la fila vacía seguiría
+    /// produciendo un mensaje de aspecto correcto.
+    /// </summary>
+    [Fact]
+    public async Task Un_aviso_ya_leido_vuelve_con_replay_y_no_con_unanswered()
+    {
+        await ArcTools.NoteAsync(_channel, As(A), B, "la clave está en el fichero");
+        await ArcTools.InboxAsync(_channel, As(B), wait: 0);
+
+        string unanswered = await ArcTools.InboxAsync(_channel, As(B), wait: 0, unanswered: true);
+        Assert.DoesNotContain("la clave está en el fichero", unanswered, StringComparison.Ordinal);
+
+        string releido = await ArcTools.InboxAsync(_channel, As(B), wait: 0, replay: 60);
+        Assert.Contains("la clave está en el fichero", releido, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task El_directorio_de_agentes_nombra_a_quien_ha_escrito()
     {

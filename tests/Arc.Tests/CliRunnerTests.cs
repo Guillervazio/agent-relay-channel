@@ -165,6 +165,30 @@ public sealed class CliRunnerTests
         Assert.Equal(ExitCodes.Empty, code);
     }
 
+    /// <summary>
+    /// El CLI reenvía la ventana tal cual y no la juzga: si decidiera aquí qué valores valen,
+    /// habría dos sitios que opinan sobre el rango y sólo uno publicado.
+    /// </summary>
+    [Fact]
+    public async Task El_replay_viaja_en_la_consulta_tal_y_como_se_pidio()
+    {
+        Answering handler = new Answering(HttpStatusCode.NoContent, string.Empty);
+
+        await RunAsync(["inbox", "--replay", "90000"], handler);
+
+        Assert.Contains("replay=90000", handler.LastRequest!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sin_replay_no_se_mira_hacia_atras()
+    {
+        Answering handler = new Answering(HttpStatusCode.NoContent, string.Empty);
+
+        await RunAsync(["inbox"], handler);
+
+        Assert.DoesNotContain("replay", handler.LastRequest!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
     // ---------- 0, y lo que viaja en la petición ----------
 
     [Fact]
