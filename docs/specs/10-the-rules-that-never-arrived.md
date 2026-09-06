@@ -29,6 +29,21 @@ how the harness stores `.github/workflows/**` after stripping the trailing `/**`
 now loads for a file that did not match before can only be seen in a session that has not already
 opened that rule by hand. [todo.md](../todo.md) carries the check.
 
+**Run the next day, 7 September 2026, and it passes.** Three reads in a fresh session brought seven
+rule files with none opened by hand: the `Dockerfile` brought `build-and-packages.project.md`,
+`gate.yml` brought `testing.project.md`, and `ChannelService.cs` brought its five. The routing
+table was obeyed where obeying it costs something — a version bump refused as a decision needing
+approval, a `limit` on the inbox refused by name. It also found the defect below, which is why the
+run was worth more than the assumption.
+
+**And the run falsified a row of the table this increment added.** Two rows said *base and
+appendix* for paths a base cannot carry — `scripts/**` and `.github/workflows/**` on testing, the
+`Dockerfile` and the workflows on build-and-packages — so a precondition promised what it could not
+deliver, which is the failure this increment exists to prevent, committed by the fix. Split in two,
+with what actually arrives named and the base marked as a thing to open by hand. The prose above
+the table had said it correctly all along and the table contradicted it, which is exactly why the
+table is the part that gets read.
+
 ---
 
 ## What the plan got wrong
