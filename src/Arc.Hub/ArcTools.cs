@@ -101,10 +101,13 @@ public sealed class ArcTools
         IHttpContextAccessor accessor,
         [Description("Segundos a esperar si el buzón está vacío. 0 para mirar y volver enseguida.")] int wait = 0,
         [Description("Incluir también las peticiones que ya leíste pero aún no has respondido.")] bool unanswered = false,
+        [Description("Volver a mirar los últimos N segundos, incluido lo que ya leíste. Es la forma " +
+                     "de recuperar un aviso que se perdió: un aviso no se responde, así que " +
+                     "'unanswered' nunca lo devuelve. Releer no consume nada.")] int replay = 0,
         CancellationToken cancellationToken = default)
     {
         string me = Caller(accessor);
-        IReadOnlyList<Message> messages = await channel.InboxAsync(me, me, unanswered, wait, ct: cancellationToken);
+        IReadOnlyList<Message> messages = await channel.InboxAsync(me, me, unanswered, wait, replay, cancellationToken);
 
         if (messages.Count == 0)
         {

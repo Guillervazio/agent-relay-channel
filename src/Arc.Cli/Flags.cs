@@ -56,7 +56,7 @@ internal static class Help
         Uso:
           arc ask      --to <agente> --body-file <f> [--wait N] [--subject S] [--refs JSON] [--thread ID]
           arc await    <request_id> [--wait N]
-          arc inbox    [--wait N] [--unanswered]
+          arc inbox    [--wait N] [--unanswered] [--replay N]
           arc respond  <request_id> --body-file <f> [--refs JSON]
           arc note     --to <agente> --body-file <f>
           arc thread   <thread_id>

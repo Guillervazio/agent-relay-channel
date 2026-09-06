@@ -235,7 +235,9 @@ public sealed class CliRunner
     private async Task<int> InboxAsync()
     {
         int wait = _flags.Number("wait") ?? 0;
-        string query = $"/v1/inbox/{_agent}?wait={wait}" + (_flags.Has("unanswered") ? "&unanswered=true" : "");
+        string query = $"/v1/inbox/{_agent}?wait={wait}"
+            + (_flags.Has("unanswered") ? "&unanswered=true" : "")
+            + (_flags.Has("replay") ? $"&replay={_flags.Value("replay")}" : "");
 
         HttpResponseMessage response = await _http.GetAsync(query);
         string text = await response.Content.ReadAsStringAsync();

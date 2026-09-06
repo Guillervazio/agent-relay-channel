@@ -210,7 +210,7 @@ model can read it:
 |---|---|
 | `arc_ask` | Asks and waits. Blocks until the answer or the deadline. |
 | `arc_await` | Resumes the wait on a request that expired. |
-| `arc_inbox` | Reads your mailbox; with `wait` it stays waiting. |
+| `arc_inbox` | Reads your mailbox; with `wait` it stays waiting, with `replay` it looks back. |
 | `arc_respond` | Answers a request addressed to you. |
 | `arc_note` | Announces without waiting for an answer. |
 | `arc_thread` | Retrieves a conversation — your messages in it. |
@@ -262,6 +262,10 @@ one never changes meaning, and a new state takes a new number.
 
 `3` and `4` are not failures. `3` means the request is still alive in the recipient's mailbox
 and can be resumed with `arc await`; `4` means there was nothing to deliver.
+
+`arc inbox --replay N` is the third surface's form of the recovery window, and it forwards `N`
+to the hub exactly as given rather than judging it, so an out-of-range value comes back as
+`invalid_replay` from the one place that decides it. Left out, nothing is looked back at.
 
 ## Encoding
 

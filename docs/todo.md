@@ -46,7 +46,7 @@ Every phase is closed in the same commit that updates its row.
 | # | Phase | Status | Commit |
 |---|---|---|---|
 | 1 | The mailbox can be re-read within a window: `Arc.Core`, REST, and `PROTOCOL.md` in the same commit | done | this commit |
-| 2 | MCP and the CLI carry it, and the handshake says it exists | pending | |
+| 2 | MCP and the CLI carry it, and the handshake says it exists | done | this commit |
 | 3 | The suites drive it against a running hub | pending | |
 | 4 | Close: the record, the rules it made false, and what the backlog no longer owes | pending | |
 
