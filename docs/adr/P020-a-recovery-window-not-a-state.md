@@ -84,12 +84,14 @@ this record.
 answer the caller receives. A `limit`, an `offset` or a cursor is a different thing and is still
 refused.
 
-**Fixing the marking itself.** The message is still marked delivered before the client has it, and
-returned objects still report `status: "pending"` on that first read although the row is already
-`delivered`. This record adds a way back; it does not claim the underlying order is right. So is
-the duplicate delivery two simultaneous polls by the same agent receive — both remain in
-[backlog.md](../backlog.md), and both are changes to when a message is marked and how a poll is
-woken, which is why they were kept out of this one.
+**Fixing the marking itself.** The message is still marked delivered before the client has it. This
+record adds a way back; it does not claim the underlying order is right.
+
+The other two halves this paragraph named — the duplicate delivery two simultaneous polls by the
+same agent receive, and `status: "pending"` reported for a row already `delivered` — were closed in
+increment 12 by [P023](P023-the-mailbox-is-claimed-not-read.md), which put the read and the marking
+in one transaction. What remains in [backlog.md](../backlog.md) is the half above, and it is a
+change to [P001](P001-long-polling-not-a-broker.md) rather than an extension of this record.
 
 **Reading the window as a retention policy.** 86400 is a cap on how far a caller may ask back, not
 a promise that anything is kept for a day or discarded after one. Nothing expires messages —

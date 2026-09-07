@@ -1,6 +1,21 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 11 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 12 are closed in [specs/](specs/).
+
+**Last verified** (7 September 2026, at the close of increment 12):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **136 passed, 0 failed, 0 skipped**,
+  three of them new; `dotnet format --verify-no-changes` clean; `dotnet restore --force` clean, no
+  advisory
+* `bash scripts/test-all.sh` — **four suites green, 114 checks** (45 REST, 28 CLI, 30 MCP, 11 UI),
+  and passing them proved less than it looks: none asserts the status of a message it just read, so
+  the wire changed underneath them without a single check moving. That is now a finding in
+  [backlog.md](backlog.md)
+* by hand against a running hub on `:8809`, which is the only thing that did check it: a note came
+  back from its first read as `"status": "delivered"`, the default mailbox then answered `204`, and
+  `?replay=60` returned the same notice still `delivered` and marked nothing. Then three notes and
+  **four simultaneous polls** — one poll took all three, the other three got `204`, three delivered
+  in total and three distinct
 
 **The copy check increment 11 left open is now closed.** Those two files had been taken from a
 branch of `dotnet-house` that was not yet merged. It merged as `c96f84a`, shipping **0.3.0**, and
@@ -72,13 +87,10 @@ Nothing is committed to, and this is not a ranking — it is where [backlog.md](
 trigger is nearest, so the next decision is taken against something rather than from a blank page.
 Each entry there names what has to become true first; read those rather than this list.
 
-* **The two halves of the delivery finding that increment 09 deliberately left.** Two polls by the
-  same agent both receive the same messages, and a message is marked delivered before the client
-  has it — including reporting `status: "pending"` for a row that is already `delivered`. They are
-  one change, not two: the inbox read and its delivery marking belong in one transaction, and that
-  is also what fixes the duplicate. Increment 09 added a way out of the consequence
-  ([P020](adr/P020-a-recovery-window-not-a-state.md)) and repaired nothing about the cause, which
-  is why this is now the nearest thing due.
+* **The smoke suites do not assert what state a message is in.** Increment 12 changed `status` on a
+  first inbox read and 114 checks across four surfaces noticed nothing. It is a few lines in
+  `smoke.sh`, and until somebody writes them the field that says what the mailbox *did* is
+  unasserted everywhere except by hand.
 * **The service installation has still never been run end to end.** Everything past
   `install-hub.ps1`'s administrator check is unexecuted. Due the next time the hub is installed as
   a service, which is also the first time somebody follows the README to the end.

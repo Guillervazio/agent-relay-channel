@@ -29,6 +29,15 @@ public sealed class MessageStoreTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Leer el buzón es reclamarlo: no hay lectura pura del correo desde el incremento 12, porque
+    /// era justo el hueco entre leer y marcar lo que dejaba que dos sondeos se llevasen lo mismo.
+    /// Así que un arrange que quiere una fila entregada la entrega como la entrega el hub.
+    /// </summary>
+    private async Task<IReadOnlyList<Message>> Reclamar(
+        string agent = "codex-pc2", bool includeUnanswered = false, DateTimeOffset? replaySince = null) =>
+        (await _store.ClaimInboxAsync(agent, includeUnanswered, replaySince)).Messages;
+
     private static Message Request(string id = "req_1", string to = "codex-pc2", string body = "¿céntimos o euros?") => new()
     {
         Id = id,
@@ -76,7 +85,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
         await _store.AddAsync(Request("req_1", to: "codex-pc2"));
         await _store.AddAsync(Request("req_2", to: "otro-agente"));
 
-        IReadOnlyList<Message> inbox = await _store.GetInboxAsync("codex-pc2");
+        IReadOnlyList<Message> inbox = await Reclamar("codex-pc2");
         Assert.Equal("req_1", Assert.Single(inbox).Id);
     }
 
@@ -84,13 +93,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
     public async Task Lo_entregado_no_vuelve_a_aparecer_en_el_buzon()
     {
         await _store.AddAsync(Request());
-        await _store.MarkDeliveredAsync(["req_1"]);
+        await Reclamar();
 
-        Assert.Empty(await _store.GetInboxAsync("codex-pc2"));
+        Assert.Empty(await Reclamar("codex-pc2"));
 
         // Salvo que se pidan las peticiones aún sin responder: es la vía de
         // recuperación para un agente que se cayó antes de contestar.
-        IReadOnlyList<Message> pending = await _store.GetInboxAsync("codex-pc2", includeUnanswered: true);
+        IReadOnlyList<Message> pending = await Reclamar("codex-pc2", includeUnanswered: true);
         Assert.Equal("req_1", Assert.Single(pending).Id);
     }
 
@@ -105,13 +114,13 @@ public sealed class MessageStoreTests : IAsyncLifetime
     public async Task Un_aviso_entregado_vuelve_con_su_cuerpo_dentro_de_la_ventana()
     {
         await _store.AddAsync(Note(body: "rama feat/pagos subida, con acentos: ñáéíóú"));
-        await _store.MarkDeliveredAsync(["msg_1"]);
+        await Reclamar();
 
-        Assert.Empty(await _store.GetInboxAsync("codex-pc2"));
-        Assert.Empty(await _store.GetInboxAsync("codex-pc2", includeUnanswered: true));
+        Assert.Empty(await Reclamar("codex-pc2"));
+        Assert.Empty(await Reclamar("codex-pc2", includeUnanswered: true));
 
         Message recuperado = Assert.Single(
-            await _store.GetInboxAsync("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1)));
+            await Reclamar("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1)));
 
         Assert.Equal("msg_1", recuperado.Id);
         Assert.Equal("rama feat/pagos subida, con acentos: ñáéíóú", recuperado.Body);
@@ -124,10 +133,10 @@ public sealed class MessageStoreTests : IAsyncLifetime
     {
         await _store.AddAsync(Note("msg_viejo", createdAt: DateTimeOffset.UtcNow.AddHours(-2)));
         await _store.AddAsync(Note("msg_nuevo"));
-        await _store.MarkDeliveredAsync(["msg_viejo", "msg_nuevo"]);
+        await Reclamar();
 
         IReadOnlyList<Message> ventana =
-            await _store.GetInboxAsync("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
+            await Reclamar("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
 
         Assert.Equal("msg_nuevo", Assert.Single(ventana).Id);
     }
@@ -140,9 +149,9 @@ public sealed class MessageStoreTests : IAsyncLifetime
     public async Task Un_mensaje_que_cumple_dos_criterios_no_sale_dos_veces()
     {
         await _store.AddAsync(Request());
-        await _store.MarkDeliveredAsync(["req_1"]);
+        await Reclamar();
 
-        IReadOnlyList<Message> buzon = await _store.GetInboxAsync(
+        IReadOnlyList<Message> buzon = await Reclamar(
             "codex-pc2", includeUnanswered: true, replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
 
         Assert.Equal("req_1", Assert.Single(buzon).Id);
@@ -173,7 +182,7 @@ public sealed class MessageStoreTests : IAsyncLifetime
         Assert.Equal("res_1", response!.Id);
 
         // Y una petición respondida ya no reclama atención.
-        Assert.Empty(await _store.GetInboxAsync("codex-pc2", includeUnanswered: true));
+        Assert.Empty(await Reclamar("codex-pc2", includeUnanswered: true));
     }
 
     [Fact]
@@ -190,6 +199,70 @@ public sealed class MessageStoreTests : IAsyncLifetime
 
         IReadOnlyList<Message> hilo = await _store.GetThreadAsync("thr_1");
         Assert.Single(hilo, m => m.Kind == MessageKind.Response);
+    }
+
+    /// <summary>
+    /// El defecto del incremento 12. Entre leer el buzón y marcarlo cabía otro sondeo del mismo
+    /// agente: los dos leían las filas pendientes y las dos respuestas se llevaban los mensajes,
+    /// aunque sólo un UPDATE los marcase. Lo que lo detecta es contar entregas en total, no mirar
+    /// la fila — la base de datos siempre estuvo coherente, y por eso el defecto duró tanto.
+    /// </summary>
+    /// <remarks>
+    /// Lo que este test **no** prueba: que la carrera ocurriera. Ocho sondeos sobre cinco mensajes
+    /// contienden de sobra en la práctica, pero nada garantiza el entrelazado, así que un verde
+    /// aquí es la propiedad ejercitada y no demostrada. Lo que sí es determinista es que la
+    /// operación sea una sola: fuera del almacén ya no existe el hueco entre leer y marcar, que es
+    /// la forma en que este defecto deja de ser alcanzable en lugar de ser vigilado.
+    /// </remarks>
+    [Fact]
+    public async Task Sondeos_simultaneos_entregan_cada_mensaje_una_sola_vez()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            await _store.AddAsync(Note($"msg_{i}"));
+        }
+
+        (IReadOnlyList<Message> Messages, IReadOnlyList<string> Claimed)[] sondeos = await Task.WhenAll(
+            Enumerable.Range(0, 8).Select(_ => _store.ClaimInboxAsync("codex-pc2")));
+
+        List<string> entregados = sondeos.SelectMany(s => s.Messages.Select(m => m.Id)).ToList();
+        Assert.Equal(5, entregados.Count);
+        Assert.Equal(5, entregados.Distinct().Count());
+        Assert.Equal(entregados.Count, sondeos.Sum(s => s.Claimed.Count));
+    }
+
+    /// <summary>
+    /// Lo que se lleva un sondeo sale con el estado que la fila ya tiene escrito. Devolvía
+    /// <c>pending</c> para una fila que la misma operación acababa de dejar en <c>delivered</c>,
+    /// y `PROTOCOL.md` dice desde siempre que leer el buzón es lo que entrega.
+    /// </summary>
+    [Fact]
+    public async Task Lo_que_sale_del_buzon_sale_ya_entregado()
+    {
+        await _store.AddAsync(Request());
+
+        Message entregado = Assert.Single(await Reclamar());
+
+        Assert.Equal(MessageStatus.Delivered, entregado.Status);
+        Assert.Equal(MessageStatus.Delivered, (await _store.GetAsync("req_1"))!.Status);
+    }
+
+    /// <summary>
+    /// La ventana de P020 sigue sin escribir nada, ahora que leerla ocurre dentro de una
+    /// transacción de escritura: lo que vuelve por ella ya estaba entregado y no se reclama otra
+    /// vez, que es lo que hace repetible releer.
+    /// </summary>
+    [Fact]
+    public async Task Releer_la_ventana_no_reclama_nada()
+    {
+        await _store.AddAsync(Note());
+        await Reclamar();
+
+        (IReadOnlyList<Message> Messages, IReadOnlyList<string> Claimed) segunda =
+            await _store.ClaimInboxAsync("codex-pc2", replaySince: DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        Assert.Equal(MessageStatus.Delivered, Assert.Single(segunda.Messages).Status);
+        Assert.Empty(segunda.Claimed);
     }
 
     [Fact]

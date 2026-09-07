@@ -146,7 +146,7 @@ public sealed class ChannelServiceTests : IAsyncLifetime
 
         // La validación va antes de insertar: contestar 422 y dejar la pregunta
         // en el canal sería lo peor de las dos opciones.
-        Assert.Empty(await _store.GetInboxAsync(B));
+        Assert.Empty((await _store.ClaimInboxAsync(B)).Messages);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class ChannelServiceTests : IAsyncLifetime
         AskResult result = await _channel.AskAsync(A, B, "¿céntimos o euros?", "Pagos", null, null, wait: 0);
 
         Assert.Equal("queued", result.Outcome);
-        Message pendiente = Assert.Single(await _store.GetInboxAsync(B));
+        Message pendiente = Assert.Single((await _store.ClaimInboxAsync(B)).Messages);
         Assert.Equal(result.RequestId, pendiente.Id);
         Assert.Equal("¿céntimos o euros?", pendiente.Body);
     }
@@ -317,7 +317,7 @@ public sealed class ChannelServiceTests : IAsyncLifetime
         Message aviso = await _channel.NoteAsync(A, B, "he tocado el endpoint de pagos", null, null, null);
 
         Assert.Equal(MessageKind.Note, aviso.Kind);
-        Message recibido = Assert.Single(await _store.GetInboxAsync(B));
+        Message recibido = Assert.Single((await _store.ClaimInboxAsync(B)).Messages);
         Assert.Equal(aviso.Id, recibido.Id);
     }
 
