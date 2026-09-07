@@ -53,13 +53,26 @@ move inside the transaction, and "one transaction" is not a licence anywhere a r
 
 ## The rules it made false
 
-None, and the check was not a formality — five clauses were read against the change and each holds.
+No rule, and the check was not a formality — five clauses were read against the change and each
+holds.
 `persistence.project.md` already required exactly this shape for a write deriving from a read;
 `architecture.project.md` is what forced the two deletions rather than permitting them;
 `api-guidelines.project.md`'s paging clause is untouched, because nothing about *how much* of the
 mailbox comes back changed; `protocol.project.md` is what said the code moves rather than the
 document; `concurrency.project.md` describes the waiter and the long poll, and the wait still sits
 between two claims and never inside one.
+
+**A record did, and reading five rules is what failed to find it.** The check looked in
+`.claude/rules/` and stopped there, so it missed that
+[P020](../adr/P020-a-recovery-window-not-a-state.md)'s *what this does not authorise* still said, in
+the present tense, that a first read reports `status: "pending"` and that both halves of the
+delivery finding remain in the backlog. Neither is true now. That section is not history — it is
+the part of a record that governs the next reader — so the paragraph was rewritten to keep the half
+that survives and hand the other two to P023. The `Context` above it was left alone, because a
+record's context is what was true when it was decided.
+
+The lesson is the routing table's, one directory over: a decision record can be made false by a
+change that edits no rule at all, and nothing greps `docs/adr/` unless somebody does.
 
 `docs/backlog.md` lost one finding and half of another. What remains of the second is the half that
 is not a defect in the code at all: nobody tells the hub the message arrived, and changing that is
