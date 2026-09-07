@@ -45,6 +45,20 @@ rediscovered as a bug.
   is then not a scoped observer — it is per-agent credentials, which is what
   [P004](adr/P004-one-token-and-an-agent-header.md) says has to change first.
 
+- **An answer reaches the agent who asked for it twice.** `arc await` hands the response to the
+  waiter without marking it, so the row stays `pending` and that same agent's mailbox delivers it
+  again afterwards, that time as `delivered`. This contradicts nothing written down:
+  [PROTOCOL.md](PROTOCOL.md) says `delivered` happens *when read from the mailbox*, and `await` does
+  not read the mailbox. It also has a defensible reading — a response lost on its way out of
+  `await` would otherwise have no way back, which is [P020](adr/P020-a-recovery-window-not-a-state.md)'s
+  own argument. What does not exist is the decision: nothing says the second delivery should happen
+  and nothing asserts that it does. Seen on 7 September 2026 between `claude-a` (Claude Code) and
+  `codex-b` (Codex CLI) against a running hub, which is also the first time two providers used this
+  channel for its purpose rather than a suite driving it.
+  <br>**Due when:** an agent reports handling one answer twice, or somebody writes the first
+  assertion about a response's status — which is the same line `smoke.sh` is missing for the
+  finding above.
+
 - **One hub, one file.** [P003](adr/P003-sqlite-on-a-file.md) assumes a single process owning the
   database. Two hubs over a share is not supported and is not merely untested.
 - **`WaiterRegistry` and `Arc.Cli` still read the real clock.** Everything the channel *writes* now
