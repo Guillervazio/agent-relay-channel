@@ -181,6 +181,14 @@ Four kinds of prose, and each says only its own thing:
 All four are written for a model, not for a person. None of them is a place for a rule the
 channel enforces: that is `ChannelService`, reached by all three surfaces.
 
+**What earns a place in `ServerInstructions` is
+[P025](../../docs/adr/P025-what-earns-a-place-in-the-handshake.md)**, and it is four questions
+rather than a judgement: is it about using the channel or about doing the work well; could
+`ChannelService` enforce it, in which case it goes there instead; does it name a project, a machine
+or an agent; and does a tool's `Description` already say it. The clause added in increment 14
+passes the first because it **completes** one already in the text rather than opening a topic —
+that is the shape to look for, and the reason this paragraph is a test and not a permission.
+
 ## What the base asks for that has no subject here
 
 Recorded so the next reader does not go looking:
