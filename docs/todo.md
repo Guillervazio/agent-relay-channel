@@ -1,6 +1,20 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 14 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 15 are closed in [specs/](specs/).
+
+**Last verified** (8 September 2026, at the close of increment 15):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **136 passed, 0 failed, 0 skipped**;
+  `dotnet format --verify-no-changes` clean; `dotnet restore --force` clean, no advisory. No code
+  changed, so `scripts/test-all.sh` was **not** re-run
+* every relative link in the new page and the three edited files resolves, checked mechanically
+* the retry loop the guide now recommends was **run against a stub** rather than reasoned about:
+  three calls and the right exit code, where the loop it replaces had to be killed by a timeout
+
+**What the new page is true of is stamped on it and nothing here re-checks it.** Its commands are
+facts about one Windows host and about Codex CLI v0.153.4. That is a finding in
+[backlog.md](backlog.md), and the version stamp is the part that must not be edited to look
+current.
 
 **Last verified** (8 September 2026, at the close of increment 14):
 
