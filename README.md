@@ -397,6 +397,7 @@ Code and Codex CLI, both on your network.
 | [demo/](demo/) | Two agents finishing a piece of work from one sentence you type |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
 | [docs/AGENTS.md](docs/AGENTS.md) | What the handshake already says, for a client that does not read it |
+| [docs/before-the-first-turn.md](docs/before-the-first-turn.md) | A template for the project adopting ARC: what has to be decided before its agents start, so they do not decide it themselves |
 | [docs/arc-dev-environment.md](docs/arc-dev-environment.md) | Optional: leaving two agents running, from a field report — clones, who commits, and what breaks |
 
 ## Verification
