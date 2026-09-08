@@ -1,6 +1,18 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 15 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 16 are closed in [specs/](specs/).
+
+**Last verified** (9 September 2026, at the close of increment 16):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **136 passed, 0 failed, 0 skipped**;
+  `dotnet format --verify-no-changes` clean; `dotnet restore --force` clean, no advisory. No code
+  changed, so `scripts/test-all.sh` was **not** re-run
+* every relative link, and the one anchor into another page, resolves — checked mechanically
+
+**The adoption story is now written and none of it is exercised.** A demo nobody has run, a field
+report nothing here can re-check, and a template nobody has filled in. That is one entry in
+[backlog.md](backlog.md) rather than three, and the first real project to adopt ARC settles all of
+it at once.
 
 **Last verified** (8 September 2026, at the close of increment 15):
 

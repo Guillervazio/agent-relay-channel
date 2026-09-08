@@ -128,6 +128,7 @@ in [P021](docs/adr/P021-a-rule-that-never-arrived.md).
 | `docs/adr/`, `docs/specs/`, `docs/todo.md`, `docs/backlog.md` | no area rule governs these — they are the `close-increment` and `reconcile-rules` skills' subject |
 | `demo/**` | no area rule governs it either, and what may go in a turn command is [P024](docs/adr/P024-who-supplies-the-turn.md) — a provider's invocation stays out of the tree |
 | [docs/arc-dev-environment.md](docs/arc-dev-environment.md) | no area rule, and it is **somebody else's field report**: its commands are facts about one host and one version of another project's CLI, both stamped at the top. Changing one means re-checking it there, not editing it to look current |
+| [docs/before-the-first-turn.md](docs/before-the-first-turn.md) | no area rule. It is a template to be filled in **elsewhere**, so the thing to protect is that it stays short and stays empty — anything the handshake already carries does not go in it ([P014](docs/adr/P014-the-channel-explains-itself-in-the-handshake.md), [P025](docs/adr/P025-what-earns-a-place-in-the-handshake.md)) |
 | a rule in `.claude/rules/` | `reconcile-rules`, and the area's base if it has one |
 
 **Most of what is versioned here matches no `paths:` at all** — 84 files of 131, of which 73 are
