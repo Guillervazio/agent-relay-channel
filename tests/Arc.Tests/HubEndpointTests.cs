@@ -316,6 +316,10 @@ public sealed class HubEndpointTests : IAsyncLifetime
         Assert.Contains("arc_inbox", instructions, StringComparison.Ordinal);
         Assert.Contains("referencias", instructions, StringComparison.Ordinal);
         Assert.Contains("los dos a la vez", instructions, StringComparison.Ordinal);
+
+        // Lo que el canal no puede comprobar y por eso tiene que decir: una referencia sólo vale
+        // si el contenido está de verdad en el fichero al que apunta — P025.
+        Assert.Contains("no sólo al canal", instructions, StringComparison.Ordinal);
     }
 
     [Fact]

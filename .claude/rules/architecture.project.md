@@ -182,3 +182,9 @@ That last one is one constant and no behaviour, and it stays that way. It is not
 own documentation goes — that is its `[Description]` — and it is not where a rule of the channel
 goes, because a rule that lands there is enforced on nobody: two of the three surfaces never see
 the handshake at all.
+
+What **does** earn a place there is four questions, in
+[P025](../../docs/adr/P025-what-earns-a-place-in-the-handshake.md) and stated once in
+[api-guidelines.project.md](api-guidelines.project.md#the-mcp-surface-adds-no-operation-rest-lacks).
+Ask them before adding a sentence to that constant; it had not grown since increment 05, and the
+reason to keep it short is the reason it works.

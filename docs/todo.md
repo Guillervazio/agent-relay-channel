@@ -1,6 +1,17 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 13 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 14 are closed in [specs/](specs/).
+
+**Last verified** (8 September 2026, at the close of increment 14):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **136 passed, 0 failed, 0 skipped**;
+  `dotnet format --verify-no-changes` clean; `dotnet restore --force` clean, no advisory
+* `bash scripts/test-all.sh` **not re-run**: the change is one constant's text, no surface
+  behaviour moved, and none of the four smokes reads the handshake
+* **the new assertion was watched to fail**, which is the point of naming it here: the test count
+  did not move, 136 before and after, so `ArcInstructions.cs` was stashed and the test run alone —
+  `Not found: "no sólo al canal"` — and then restored. A green suite over an assertion nobody saw
+  fail is the shape of two entries in [backlog.md](backlog.md)
 
 **Last verified** (8 September 2026, at the close of increment 13):
 

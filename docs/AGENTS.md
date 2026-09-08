@@ -74,6 +74,12 @@ arc ask --to codex-pc2 \
 Before quoting code, push your branch: that way the other one can look at it in their own
 clone. The body is limited to 256 KB.
 
+And **what you know goes in the file, not only into the channel.** This is the other half of the
+same rule: you send a reference because the content is there, so if it is not there the reference
+points at nothing. A figure or a caveat worth saying here is worth being there with its source. A
+reply that explains more than the file contains looks complete and leaves a gap nobody sees until
+they open it — send the verdict and where to look, and write the rest where it stays.
+
 ### Writing the body
 
 Always by file, never on the command line: on Windows the arguments go through the ANSI
