@@ -45,6 +45,10 @@ export ARC_TURN_CODEX_B='<your CLI> <run-once flags> --cd <path to codex-b> <pro
 somebody else's tool at a version nothing here tracks and nothing here could re-check —
 [P024](../docs/adr/P024-who-supplies-the-turn.md) says why that stays out of the tree.
 
+**No binary here reads this variable.** The lead's own instructions do. That is why it is absent
+from the hub's configuration table in the root [README](../README.md#hub-configuration) and why
+grepping `src/` for it finds nothing — which looks like a bug the first time you check.
+
 Two things worth knowing before you write yours, both of which cost an hour to discover:
 
 * It has to run **one turn and exit**, not open an interactive session. Every CLI spells that
