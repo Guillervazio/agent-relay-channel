@@ -1,6 +1,18 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 12 are closed in [specs/](specs/).
+## Increment 13 — the human is still the transport
+
+The channel makes a turn wait and nothing makes a turn happen, so every exchange has needed a
+person to start both agents. The [demo](../demo/) demonstrated the channel and the gap in the same
+run: one agent told to block in its mailbox, the other handed a question already written, and two
+consoles opened by hand to get there.
+
+| # | Phase | Status | Commit |
+|---|---|---|---|
+| 1 | [P024](adr/P024-who-supplies-the-turn.md), the README's half-true sentence, the demo rebuilt around one `empezá`, and the backlog | in progress | |
+| 2 | Close: the record, the log, and the rules this decided something for | | |
+
+Increments 01 to 12 are closed in [specs/](specs/).
 
 **Last verified** (7 September 2026, at the close of increment 12):
 
