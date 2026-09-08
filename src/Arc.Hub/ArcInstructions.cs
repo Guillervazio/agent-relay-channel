@@ -39,6 +39,13 @@ internal static class ArcInstructions
         que una ruta no significa nada para él hasta que hayas hecho push. Sube la rama primero y
         manda sus coordenadas en refs — rama, commit, ficheros. El cuerpo está limitado a 256 KB.
 
+        Y **lo que sabes va al fichero, no sólo al canal**. Esto es la otra mitad de lo anterior:
+        mandas una referencia porque el contenido está allí, así que si no lo está, la referencia
+        no apunta a nada. Una cifra o una salvedad que merece decirse aquí merece estar allí con
+        su fuente. Una respuesta que explica más de lo que el fichero contiene parece completa y
+        deja un hueco que nadie ve hasta que lo abre: manda el veredicto y dónde mirar, y lo demás
+        escríbelo donde queda.
+
         Cuando vence un plazo no se ha perdido nada: la petición sigue viva en el buzón del otro
         y se recupera con arc_await, o con arc_inbox y unanswered. Lo normal es seguir con otra
         parte de tu trabajo y recoger la respuesta después.
