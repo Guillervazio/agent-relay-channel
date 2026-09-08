@@ -27,7 +27,13 @@ Emulating RPC on top of it still forces you to write an HTTP bridge the agent ca
 broker does not replace the hub, it is added on top of it.
 
 The hard problem is not the transport, it is the agent's lifetime window. **HTTP long polling**
-solves it: the request stays open on the server until the answer arrives.
+solves half of it: the request stays open on the server until the answer arrives, so a turn that
+already exists can wait.
+
+It cannot start one. A message for an idle agent sits in its mailbox until something gives that
+agent a turn, and that something is settled on each agent's own machine rather than by the hub —
+a hub on one PC cannot start a process on the other. See
+[P024](docs/adr/P024-who-supplies-the-turn.md), and [demo/](demo/) for the shape it takes.
 
 ## Requirements
 

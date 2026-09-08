@@ -59,6 +59,35 @@ arranging a test is not.
 There is no dependency-injection container in `Arc.Core`: the hub wires it up, the CLI does not
 need one.
 
+## Supplying a turn is not a role here
+
+The channel makes a turn **wait**; nothing in this solution makes a turn **happen**. What opens an
+agent's turn lives on that agent's own machine, as configuration, and is not a project in the graph
+above — [P024](../../docs/adr/P024-who-supplies-the-turn.md) carries the argument.
+
+The reason is the topology rather than a preference: the deployment is two PCs, and a hub on one of
+them cannot start a process on the other. It could not have been `Arc.Hub` even if that had been
+the tidier place to put it.
+
+Forbidden, and each of these is what somebody reaches for first:
+
+* **A hub feature** — an endpoint or a background service that runs a command when a message
+  arrives. It cannot reach the other machine, and it turns one shared token into arbitrary
+  execution on every machine on the channel.
+* **A CLI subcommand.** `arc turn` is not binding an input and calling exactly one `ChannelService`
+  method, which is the whole of what a surface does. The CLI is what an agent runs *inside* a turn.
+* **A provider's invocation committed anywhere in this tree.** The executable, its flags and its
+  sandbox settings are what a version changes underneath you, and
+  [build-and-packages.project.md](build-and-packages.project.md) has no row for somebody else's
+  CLI. [demo/README.md](../../demo/README.md) carries a placeholder for that reason, and
+  `ARC_TURN_<agent>` is read by **no** binary in this repository — an agent's own instructions read
+  it, which is why it belongs in no configuration table and why grepping `src/` for it finds
+  nothing.
+
+What this does not authorise: calling anything inconvenient "agent-side". The test is whether it
+must run on a machine the hub cannot reach. Everything the channel *decides* still lives in
+`ChannelService`, where all three surfaces meet it.
+
 ## Which role translates, and which one decides
 
 The base's edge clause, answered: **the rules of the channel live once, in `ChannelService`.**

@@ -54,8 +54,9 @@ another agent's mailbox but 404 on somebody else's message; the schema created a
 codes as contract; the unauthenticated observer page; the channel explaining itself in the MCP
 handshake rather than in every repository that adopts it; recovering a delivered message with a
 window rather than a state, which writes nothing; MIT as the licence; this page routing to the
-rules because their loading is conditional and fails silently. Do not re-litigate them; read the
-record if you need the argument.
+rules because their loading is conditional and fails silently; **who opens a turn — the agent's own
+machine and never the hub**, which is the one that stops the channel needing a person to start both
+sides. Do not re-litigate them; read the record if you need the argument.
 
 ---
 
@@ -125,11 +126,17 @@ in [P021](docs/adr/P021-a-rule-that-never-arrived.md).
 | `scripts/**`, `.github/workflows/**` | [testing.project.md](.claude/rules/testing.project.md) — its base covers `tests/**/*.cs` only and will **not** arrive |
 | `*.csproj`, `*.props`, `*.slnx`, `global.json`, `Dockerfile`, `.github/workflows/**` | `build-and-packages`, base and appendix — the base gained the last three in `dotnet-house` 0.3.0, because its own clause about a version pinned in step with a container stage or a CI image is about them |
 | `docs/adr/`, `docs/specs/`, `docs/todo.md`, `docs/backlog.md` | no area rule governs these — they are the `close-increment` and `reconcile-rules` skills' subject |
+| `demo/**` | no area rule governs it either, and what may go in a turn command is [P024](docs/adr/P024-who-supplies-the-turn.md) — a provider's invocation stays out of the tree |
 | a rule in `.claude/rules/` | `reconcile-rules`, and the area's base if it has one |
 
-**Half of what is versioned here matches no `paths:` at all** — 77 files of 122, and they are the
-markdown this project largely consists of. For those the last two rows are the whole answer, and
+**Most of what is versioned here matches no `paths:` at all** — 84 files of 131, of which 73 are
+markdown, recounted on 8 September 2026. For those the last three rows are the whole answer, and
 this page is the only thing that reaches them.
+
+That count was `77 of 122` and had been drifting for several increments before this one, which is
+the thing to notice about it: **a measured claim on this page has nothing that re-measures it.**
+Recount before quoting it — `git ls-files` against the globs above — rather than repeating the
+number, which is what makes it wrong slowly enough that nobody sees it happen.
 
 ---
 

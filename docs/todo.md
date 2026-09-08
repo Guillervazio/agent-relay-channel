@@ -1,6 +1,24 @@
 # Current work
 
-**Nothing in progress.** Increments 01 to 12 are closed in [specs/](specs/).
+**Nothing in progress.** Increments 01 to 13 are closed in [specs/](specs/).
+
+**Last verified** (8 September 2026, at the close of increment 13):
+
+* `dotnet build` — **0 warnings, 0 errors**; `dotnet test` — **136 passed, 0 failed, 0 skipped**,
+  none new because no code changed; `dotnet format --verify-no-changes` clean; `dotnet restore
+  --force` clean, no advisory
+* `bash scripts/test-all.sh` **not re-run**, on increment 10's precedent: nothing under `src/`
+  moved, so increment 12's run of it stands
+* by hand, because no test reaches any of it: every relative link in the eight changed files
+  resolves, checked mechanically; and `CLAUDE.md`'s file count was recounted against `git ls-files`
+  rather than adjusted — it was `77 of 122`, it is **84 of 131**, and it had been drifting before
+  this increment added two of them
+
+**What this increment did not verify is the thing it is about.** [P024](adr/P024-who-supplies-the-turn.md)
+settles who opens a turn and the demo is written for it, and **nobody has opened one**: that needs a
+second CLI installed and a real turn command, and neither was produced here on purpose. The shape
+and the documents are what shipped. It is the first row of [backlog.md](backlog.md)'s findings with
+what would make it due.
 
 **Last verified** (7 September 2026, at the close of increment 12):
 
