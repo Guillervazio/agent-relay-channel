@@ -394,8 +394,10 @@ Code and Codex CLI, both on your network.
 | [tests/Arc.Tests](tests/Arc.Tests) | Core tests |
 | [scripts](scripts) | Starting, publishing, installation and smoke tests |
 | [Dockerfile](Dockerfile) | The hub on any machine with a container runtime |
+| [demo/](demo/) | Two agents finishing a piece of work from one sentence you type |
 | [docs/PROTOCOL.md](docs/PROTOCOL.md) | Full contract of messages and endpoints |
 | [docs/AGENTS.md](docs/AGENTS.md) | What the handshake already says, for a client that does not read it |
+| [docs/arc-dev-environment.md](docs/arc-dev-environment.md) | Optional: leaving two agents running, from a field report — clones, who commits, and what breaks |
 
 ## Verification
 
